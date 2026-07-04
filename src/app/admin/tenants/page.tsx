@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Server, 
   Search, 
@@ -9,23 +9,43 @@ import {
   Settings 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Mock tenant datasets
-const INITIAL_TENANTS = [
-  { id: 1, org: "Acme Corporation", owner: "John Doe", agents: 3, dailyCost: 28.40, status: "active", tps: 18 },
-  { id: 2, org: "CyberDyne Systems", owner: "Sarah Connor", agents: 12, dailyCost: 184.20, status: "active", tps: 145 },
-  { id: 3, org: "Oscorp Industries", owner: "Norman Osborn", agents: 8, dailyCost: 92.50, status: "suspended", tps: 0 },
-  { id: 4, org: "Wayne Enterprises", owner: "Bruce Wayne", agents: 24, dailyCost: 480.10, status: "active", tps: 312 },
-  { id: 5, org: "Tyrell Replicants", owner: "Eldon Tyrell", agents: 15, dailyCost: 250.00, status: "active", tps: 88 }
-];
+import { apiClient } from "@/lib/api-client";
 
 export default function AdminTenantsPage() {
-  const [tenants, setTenants] = useState(INITIAL_TENANTS);
+  const [tenants, setTenants] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [logs, setLogs] = useState<string[]>([
     "directory: mounted cross-tenant cluster maps",
     "auth: validated operator clearances (super_admin)"
   ]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    apiClient.orgs.getOrganizations()
+      .then((res) => {
+        const mapped = res.data.map((o: any, idx: number) => ({
+          id: o.id || idx,
+          org: o.name,
+          owner: o.email || "System Operator",
+          agents: 3,
+          dailyCost: o.subscription === "premium" ? 49.00 : 0.00,
+          status: o.is_deleted ? "suspended" : "active",
+          tps: o.is_deleted ? 0 : 15
+        }));
+        setTenants(mapped);
+        setLogs(prev => [...prev, `directory: successfully synchronized ${mapped.length} active tenants`]);
+      })
+      .catch((err) => {
+        console.error(err);
+        setErrorMsg(err?.message || "Failed to query organization catalogs.");
+        setLogs(prev => [...prev, "directory: synchronization error: cluster map failed"]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
 
   // Filtered tenants list
   const filteredTenants = tenants.filter(tenant => 
@@ -33,7 +53,7 @@ export default function AdminTenantsPage() {
     tenant.owner.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleTenantStatus = (id: number) => {
+  const toggleTenantStatus = (id: any) => {
     setTenants(prev => prev.map(t => {
       if (t.id === id) {
         const nextStatus = t.status === "active" ? "suspended" : "active";
@@ -93,7 +113,22 @@ export default function AdminTenantsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-color/40 text-xs">
-              {filteredTenants.map((tenant) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-text-muted">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <span>Synchronizing tenant directories...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : errorMsg ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-[#EF4444] font-medium">
+                    {errorMsg}
+                  </td>
+                </tr>
+              ) : filteredTenants.map((tenant) => (
                 <tr key={tenant.id} className="hover:bg-hover-bg/30 transition-colors">
                   <td className="py-4 font-bold text-text-primary pl-2">{tenant.org}</td>
                   <td className="py-4 text-text-secondary">{tenant.owner}</td>

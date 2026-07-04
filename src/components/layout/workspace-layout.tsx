@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { CommandPalette } from "../common/command-palette";
 import { FloatingAssistant } from "../common/floating-assistant";
 import { SynapseLogo } from "../common/logo";
+import { apiClient } from "@/lib/api-client";
 
 interface SidebarItem {
   label: string;
@@ -42,6 +43,51 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  // Authenticate and load profile
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      router.push("/");
+      return;
+    }
+
+    const cachedUser = localStorage.getItem("user");
+    if (cachedUser) {
+      try {
+        setUser(JSON.parse(cachedUser));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Refresh user profile details dynamically
+    apiClient.users.getProfile()
+      .then((res) => {
+        setUser(res.data);
+        localStorage.setItem("user", JSON.stringify(res.data));
+      })
+      .catch((err) => {
+        console.error("Failed to fetch fresh user profile:", err);
+      });
+  }, [router]);
+
+  // Listen for storage changes to sync profile updates instantly
+  useEffect(() => {
+    const handleSync = () => {
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        try {
+          setUser(JSON.parse(cached));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    window.addEventListener("storage", handleSync);
+    return () => window.removeEventListener("storage", handleSync);
+  }, []);
 
   // Command palette state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -88,21 +134,33 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const SIDEBAR_ITEMS: SidebarItem[] = [
+  // Determine user role tier for sidebar visibility
+  const isSuperAdmin = user?.is_superuser === true || user?.role_details?.code === "super_admin";
+  const isWorkspaceAdmin = user?.role_details?.code === "admin" || user?.role_details?.code === "manager";
+
+  const ALL_SIDEBAR_ITEMS: (SidebarItem & { minRole?: "super" | "admin" | "member" })[] = [
     { label: "Dashboard", href: "/dashboard", icon: <LayoutGrid className="h-4.5 w-4.5" /> },
     { label: "Projects", href: "/projects", icon: <Folder className="h-4.5 w-4.5" /> },
     { label: "AI Agents", href: "/agents", icon: <Bot className="h-4.5 w-4.5" /> },
-    { label: "Automations", href: "/automations", icon: <Zap className="h-4.5 w-4.5" /> },
+    { label: "Automations", href: "/automations", icon: <Zap className="h-4.5 w-4.5" />, minRole: "admin" },
     { label: "Knowledge", href: "/knowledge", icon: <BookOpen className="h-4.5 w-4.5" /> },
-    { label: "Integrations", href: "/integrations", icon: <Link2 className="h-4.5 w-4.5" /> },
-    { label: "Scheduler", href: "/scheduler", icon: <Calendar className="h-4.5 w-4.5" /> },
+    { label: "Integrations", href: "/integrations", icon: <Link2 className="h-4.5 w-4.5" />, minRole: "admin" },
+    { label: "Scheduler", href: "/scheduler", icon: <Calendar className="h-4.5 w-4.5" />, minRole: "admin" },
     { label: "Files", href: "/files", icon: <FolderClosed className="h-4.5 w-4.5" /> },
     { label: "AI Chat", href: "/chat", icon: <MessageSquare className="h-4.5 w-4.5" /> },
     { label: "Notifications", href: "/notifications", icon: <Bell className="h-4.5 w-4.5" /> },
-    { label: "Analytics", href: "/analytics", icon: <BarChart3 className="h-4.5 w-4.5" /> },
-    { label: "Team", href: "/team", icon: <Users className="h-4.5 w-4.5" /> },
+    { label: "Analytics", href: "/analytics", icon: <BarChart3 className="h-4.5 w-4.5" />, minRole: "admin" },
+    { label: "Team", href: "/team", icon: <Users className="h-4.5 w-4.5" />, minRole: "admin" },
     { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" /> },
   ];
+
+  const SIDEBAR_ITEMS: SidebarItem[] = ALL_SIDEBAR_ITEMS.filter(item => {
+    if (!item.minRole) return true;
+    if (isSuperAdmin) return true;
+    if (item.minRole === "admin" && isWorkspaceAdmin) return true;
+    if (item.minRole === "member") return true;
+    return false;
+  });
 
   // Helper to determine breadcrumb title based on pathname
   const getBreadcrumb = () => {
@@ -191,28 +249,55 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         {/* Collapse Sidebar Button & User Panel */}
         <div className="p-4 border-t border-border-color flex flex-col gap-3 flex-shrink-0 bg-[#111113]">
           <div className="flex items-center justify-between">
-            {sidebarOpen && (
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center font-bold text-xs">
-                  JD
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-bold text-white">John Doe</span>
-                  <Link 
-                    href="/admin" 
-                    className="text-[9px] text-primary hover:underline font-extrabold uppercase tracking-wider flex items-center gap-0.5"
-                  >
-                    <span>Admin Seat</span>
-                    <ChevronRight className="h-2 w-2" />
+            {sidebarOpen && user && (
+              <div className="flex items-center gap-2.5 animate-fadeIn">
+                <Link href="/profile" className="h-8 w-8 rounded-full bg-neutral-800 border border-neutral-700 hover:border-primary/40 flex items-center justify-center font-bold text-xs uppercase text-primary transition-colors cursor-pointer" title="View Profile">
+                  {user.full_name
+                    ? user.full_name
+                        .split(" ")
+                        .map((n: string) => n[0])
+                        .join("")
+                        .substring(0, 2)
+                    : user.email?.substring(0, 2) || "US"}
+                </Link>
+                <div className="flex flex-col text-left">
+                  <Link href="/profile" className="text-[11px] font-bold text-white hover:text-primary transition-colors truncate max-w-[120px]" title="View Profile">
+                    {user.full_name || user.email}
                   </Link>
+                  {user.role === "superuser" || user.role === "admin" || user.role_details?.code === "super_admin" || user.role_details?.code === "admin" || user.role === "manager" ? (
+                    <Link 
+                      href="/admin" 
+                      className="text-[9px] text-primary hover:underline font-extrabold uppercase tracking-wider flex items-center gap-0.5"
+                    >
+                      <span>Admin Seat</span>
+                      <ChevronRight className="h-2 w-2" />
+                    </Link>
+                  ) : (
+                    <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider">
+                      {user.role_details?.name || user.role || "Member"}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
             <button
-              onClick={() => router.push("/")}
+              onClick={async () => {
+                try {
+                  const refresh = localStorage.getItem("refresh_token");
+                  if (refresh) {
+                    await apiClient.auth.logout(refresh);
+                  }
+                } catch (e) {
+                  console.error(e);
+                }
+                localStorage.removeItem("access_token");
+                localStorage.removeItem("refresh_token");
+                localStorage.removeItem("user");
+                router.push("/");
+              }}
               className={cn(
-                "p-2 rounded-lg hover:bg-hover-bg text-[#8D96A7] hover:text-[#EF4444] transition-colors",
-                !sidebarOpen && "mx-auto"
+                "p-2 rounded-lg hover:bg-hover-bg text-[#8D96A7] hover:text-[#EF4444] transition-colors cursor-pointer",
+                (!sidebarOpen || !user) && "mx-auto"
               )}
               title="Sign Out"
             >

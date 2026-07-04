@@ -20,10 +20,13 @@ import {
   Globe,
   Sun,
   Moon,
-  TrendingUp
+  TrendingUp,
+  Phone,
+  Hash
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SynapseLogo } from "@/components/common/logo";
+import { apiClient } from "@/lib/api-client";
 
 // Preset configurations for the interactive left pane pipeline simulator
 const PIPELINE_PRESETS = {
@@ -34,7 +37,7 @@ const PIPELINE_PRESETS = {
   ],
   crm: [
     { label: "Webhook Inbound", type: "trigger", desc: "POST /v1/leads", icon: <Activity className="h-4 w-4" /> },
-    { label: "AI Lead Classifier", type: "ai", desc: "Model: InsightAgent v3.0", icon: <Bot className="h-4 w-4" /> },
+    { label: "AI Lead Classifier", type: "ai", desc: "Model: InsightAgent w3.0", icon: <Bot className="h-4 w-4" /> },
     { label: "Slack Alert Dispatch", type: "action", desc: "Channel: #sales-alerts", icon: <Zap className="h-4 w-4" /> }
   ],
   crawler: [
@@ -49,10 +52,13 @@ export default function AuthPage() {
   
   // Auth flow states
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("admin@synapse.io");
+  const [email, setEmail] = useState("user@example.com");
   const [org, setOrg] = useState("Acme Corporation");
-  const [fullName, setFullName] = useState("John Doe");
-  const [password, setPassword] = useState("••••••••••••");
+  const [fullName, setFullName] = useState("Alex Mercer");
+  const [username, setUsername] = useState("alexm");
+  const [phone, setPhone] = useState("+1234567890");
+  const [password, setPassword] = useState("SecurePassword123");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   // Theme state
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -142,37 +148,104 @@ export default function AuthPage() {
     setTimeout(executeNextNode, 300);
   };
 
-  // Handle sign in or sign up with global loader
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle sign in or sign up with API calls and global loader
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setLoadProgress(0);
-    setLoadStatus("Authenticating access credentials...");
+    setErrorMsg(null);
+    setLoadStatus("Connecting to authentication server...");
 
-    // Simulated progress loading bar ticks
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      progress += Math.floor(Math.random() * 15) + 5;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(progressInterval);
-        setLoadProgress(100);
-        setLoadStatus("Workspace synchronized. Loading dashboard...");
+    try {
+      if (authMode === "signin") {
+        // 1. Login user
+        setLoadStatus("Verifying credentials...");
+        setLoadProgress(20);
+        const loginRes = await apiClient.auth.login({ email, password });
         
+        setLoadStatus("Credentials verified. Storing tokens...");
+        setLoadProgress(50);
+        localStorage.setItem("access_token", loginRes.data.access);
+        localStorage.setItem("refresh_token", loginRes.data.refresh);
+        localStorage.setItem("user", JSON.stringify(loginRes.data.user));
+
+        // 2. Animate and redirect
+        let progress = 50;
+        const progressInterval = setInterval(() => {
+          progress += Math.floor(Math.random() * 15) + 5;
+          if (progress >= 100) {
+            progress = 100;
+            clearInterval(progressInterval);
+            setLoadProgress(100);
+            setLoadStatus("Workspace synchronized. Loading dashboard...");
+            setTimeout(() => {
+              router.push("/dashboard");
+            }, 300);
+          } else {
+            setLoadProgress(progress);
+            if (progress > 85) {
+              setLoadStatus("Starting workspace sessions...");
+            } else if (progress > 70) {
+              setLoadStatus("Synchronizing workspace node metadata...");
+            }
+          }
+        }, 100);
+      } else {
+        // Signup mode: Multi-step process (Register -> Login -> Create Org -> Link Org)
+        
+        // Step A: Register Account
+        setLoadStatus("Registering operator account...");
+        setLoadProgress(15);
+        await apiClient.auth.register({
+          email,
+          password,
+          full_name: fullName,
+          phone,
+          username
+        });
+
+        // Step B: Authenticate
+        setLoadStatus("Authenticating new session...");
+        setLoadProgress(35);
+        const loginRes = await apiClient.auth.login({ email, password });
+        localStorage.setItem("access_token", loginRes.data.access);
+        localStorage.setItem("refresh_token", loginRes.data.refresh);
+        localStorage.setItem("user", JSON.stringify(loginRes.data.user));
+
+        // Step C: Provision Organization
+        setLoadStatus(`Provisioning cluster: ${org}...`);
+        setLoadProgress(60);
+        const orgRes = await apiClient.orgs.createOrganization({
+          name: org,
+          email,
+          industry: "Technology",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          language: "en"
+        });
+        const orgId = orgRes.data.id;
+
+        // Step D: Associate profile with org
+        setLoadStatus("Linking workspace permissions...");
+        setLoadProgress(80);
+        await apiClient.users.updateProfile({ organization: orgId });
+
+        // Step E: Fetch complete user profile details
+        setLoadStatus("Fetching sync keys...");
+        setLoadProgress(90);
+        const profileRes = await apiClient.users.getProfile();
+        localStorage.setItem("user", JSON.stringify(profileRes.data));
+
+        setLoadProgress(100);
+        setLoadStatus("Cluster provisioned successfully. Redirecting...");
         setTimeout(() => {
           router.push("/dashboard");
-        }, 300);
-      } else {
-        setLoadProgress(progress);
-        if (progress > 80) {
-          setLoadStatus("Starting active agent threads...");
-        } else if (progress > 55) {
-          setLoadStatus("Syncing database vector indices...");
-        } else if (progress > 30) {
-          setLoadStatus(`Establishing cluster target: ${org}...`);
-        }
+        }, 500);
       }
-    }, 120);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err?.message || "An authentication query error occurred.");
+      setIsLoading(false);
+    }
   };
 
   const activeNodes = PIPELINE_PRESETS[presetKey];
@@ -296,10 +369,10 @@ export default function AuthPage() {
       </section>
 
       {/* 2. Right Side: Authentication Form Panel */}
-      <section className="flex-1 flex items-center justify-center p-6 md:p-8 bg-app-bg relative h-screen">
+      <section className="flex-1 flex flex-col items-center p-6 md:p-8 bg-app-bg relative h-screen overflow-y-auto scrollbar-thin py-10 md:py-16">
         <div className="absolute inset-0 bg-workspace-grid opacity-[0.1] md:hidden pointer-events-none" />
 
-        <div className="w-full max-w-sm flex flex-col gap-6 relative z-10">
+        <div className="w-full max-w-sm flex flex-col gap-5 relative z-10 my-auto">
           
           {/* Branding (Mobile only) */}
           <div className="md:hidden flex flex-col items-center text-center">
@@ -337,18 +410,25 @@ export default function AuthPage() {
           </div>
 
           {/* Authentication Input Card */}
-          <div className="bg-card-bg border border-border-color rounded-[24px] p-6 md:p-8 shadow-2xl">
+          <div className="bg-card-bg border border-border-color rounded-[24px] p-5 md:p-6 shadow-2xl">
             <h2 className="text-sm font-bold text-text-primary mb-1 text-left">
               {authMode === "signin" ? "Workspace Access Portal" : "Provision New Cluster Workspace"}
             </h2>
-            <p className="text-[10px] text-text-muted mb-6 text-left">
+            <p className="text-[10px] text-text-muted mb-4 text-left">
               Enter details below to synchronize cluster database connections.
             </p>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+              {/* Error reporting alert */}
+              {errorMsg && (
+                <div className="p-3 text-[11px] rounded-xl border border-[#EF4444]/20 bg-[#EF4444]/5 text-[#EF4444] font-medium text-left animate-fadeIn">
+                  {errorMsg}
+                </div>
+              )}
+
               {/* Full Name for Signup */}
               {authMode === "signup" && (
-                <div className="flex flex-col gap-1 text-left">
+                <div className="flex flex-col gap-1 text-left animate-fadeIn">
                   <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
                     Admin Name
                   </label>
@@ -362,31 +442,77 @@ export default function AuthPage() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                      placeholder="e.g. Richard Hendricks"
+                      placeholder="e.g. Alex Mercer"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Workspace Org Name */}
-              <div className="flex flex-col gap-1 text-left">
-                <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
-                  Organization / Cluster
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                    <ShieldCheck className="h-4 w-4" />
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    value={org}
-                    onChange={(e) => setOrg(e.target.value)}
-                    className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                    placeholder="e.g. Acme Corp"
-                  />
+              {/* Username for Signup */}
+              {authMode === "signup" && (
+                <div className="flex flex-col gap-1 text-left animate-fadeIn">
+                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
+                      <Hash className="h-4 w-4" />
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                      placeholder="e.g. alexm"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Phone for Signup */}
+              {authMode === "signup" && (
+                <div className="flex flex-col gap-1 text-left animate-fadeIn">
+                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
+                      <Phone className="h-4 w-4" />
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                      placeholder="e.g. +1234567890"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Workspace Org Name for Signup */}
+              {authMode === "signup" && (
+                <div className="flex flex-col gap-1 text-left animate-fadeIn">
+                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
+                    Organization / Cluster
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
+                      <ShieldCheck className="h-4 w-4" />
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={org}
+                      onChange={(e) => setOrg(e.target.value)}
+                      className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                      placeholder="e.g. Acme Corp"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Email Address */}
               <div className="flex flex-col gap-1 text-left">
@@ -436,7 +562,7 @@ export default function AuthPage() {
               {/* Submit */}
               <button
                 type="submit"
-                className="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs tracking-wide transition-all duration-200 shadow-lg shadow-primary/10 hover:shadow-primary/25 mt-2 flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs tracking-wide transition-all duration-200 shadow-lg shadow-primary/10 hover:shadow-primary/25 mt-2 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles className="h-3.5 w-3.5 fill-current text-white-force" />
                 <span className="text-white-force">

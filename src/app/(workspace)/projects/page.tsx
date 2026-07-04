@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Folder, 
   Plus, 
@@ -33,6 +33,20 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  const [userName, setUserName] = useState("Operator");
+
+  useEffect(() => {
+    const cached = localStorage.getItem("user");
+    if (cached) {
+      try {
+        const u = JSON.parse(cached);
+        setUserName(u.full_name || u.email || "Operator");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
   // Mock projects list
   const [projects, setProjects] = useState<Project[]>([
     {
@@ -310,7 +324,7 @@ export default function ProjectsPage() {
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] text-[#8D96A7] uppercase font-bold">Attached Team Members</span>
-                    <span className="text-xs text-white font-medium mt-1">John Doe + {selectedProject?.membersCount ? selectedProject.membersCount - 1 : 0} others</span>
+                    <span className="text-xs text-white font-medium mt-1">{userName} + {selectedProject?.membersCount ? selectedProject.membersCount - 1 : 0} others</span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] text-[#8D96A7] uppercase font-bold">Project State</span>
