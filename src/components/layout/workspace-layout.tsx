@@ -23,7 +23,8 @@ import {
   ChevronRight,
   LogOut,
   Sun,
-  Moon
+  Moon,
+  ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "../common/command-palette";
@@ -101,6 +102,7 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     { label: "Analytics", href: "/analytics", icon: <BarChart3 className="h-4.5 w-4.5" /> },
     { label: "Team", href: "/team", icon: <Users className="h-4.5 w-4.5" /> },
     { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" /> },
+    { label: "Admin Panel", href: "/admin", icon: <ShieldAlert className="h-4.5 w-4.5" /> },
   ];
 
   // Helper to determine breadcrumb title based on pathname
