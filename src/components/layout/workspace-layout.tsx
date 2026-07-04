@@ -102,7 +102,6 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     { label: "Analytics", href: "/analytics", icon: <BarChart3 className="h-4.5 w-4.5" /> },
     { label: "Team", href: "/team", icon: <Users className="h-4.5 w-4.5" /> },
     { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" /> },
-    { label: "Admin Panel", href: "/admin", icon: <ShieldAlert className="h-4.5 w-4.5" /> },
   ];
 
   // Helper to determine breadcrumb title based on pathname
@@ -199,7 +198,13 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[11px] font-bold text-white">John Doe</span>
-                  <span className="text-[9px] text-[#8D96A7]">Admin Seat</span>
+                  <Link 
+                    href="/admin" 
+                    className="text-[9px] text-primary hover:underline font-extrabold uppercase tracking-wider flex items-center gap-0.5"
+                  >
+                    <span>Admin Seat</span>
+                    <ChevronRight className="h-2 w-2" />
+                  </Link>
                 </div>
               </div>
             )}
