@@ -23,11 +23,12 @@ import {
   TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SynapseLogo } from "@/components/common/logo";
 
 // Preset configurations for the interactive left pane pipeline simulator
 const PIPELINE_PRESETS = {
   dev: [
-    { label: "Git Push Commit", type: "trigger", desc: "repo: anthopi-ui", icon: <GitBranch className="h-4 w-4" /> },
+    { label: "Git Push Commit", type: "trigger", desc: "repo: synapse-ui", icon: <GitBranch className="h-4 w-4" /> },
     { label: "AI Agent Audit", type: "ai", desc: "Model: DevAgent v2.4", icon: <Bot className="h-4 w-4" /> },
     { label: "Compiler Test", type: "action", desc: "npm run build (Success)", icon: <Terminal className="h-4 w-4" /> }
   ],
@@ -48,7 +49,7 @@ export default function AuthPage() {
   
   // Auth flow states
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("admin@anthopi.io");
+  const [email, setEmail] = useState("admin@synapse.io");
   const [org, setOrg] = useState("Acme Corporation");
   const [fullName, setFullName] = useState("John Doe");
   const [password, setPassword] = useState("••••••••••••");
@@ -198,11 +199,9 @@ export default function AuthPage() {
 
         {/* Top Header branding */}
         <div className="flex items-center gap-2.5 relative z-10">
-          <div className="h-7 w-7 rounded-xl bg-gradient-to-tr from-primary to-secondary shadow-md shadow-primary/20 flex items-center justify-center">
-            <Bot className="h-4 text-white" />
-          </div>
+          <SynapseLogo size="sm" />
           <span className="font-bold text-[11px] uppercase tracking-widest text-text-primary">
-            Anthopi OS Workspace
+            Synapse OS Workspace
           </span>
         </div>
 
@@ -304,10 +303,10 @@ export default function AuthPage() {
           
           {/* Branding (Mobile only) */}
           <div className="md:hidden flex flex-col items-center text-center">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-primary to-secondary shadow-md flex items-center justify-center mb-2">
-              <Bot className="h-4.5 w-4.5 text-white" />
+            <div className="mb-2">
+              <SynapseLogo size="md" />
             </div>
-            <h1 className="text-sm font-bold text-text-primary">Anthopi OS</h1>
+            <h1 className="text-sm font-bold text-text-primary">Synapse OS</h1>
             <p className="text-[10px] text-text-muted mt-1">AI Automation Workspace</p>
           </div>
 
@@ -464,8 +463,8 @@ export default function AuthPage() {
           
           <div className="flex flex-col items-center gap-4 text-center z-10">
             {/* Pulsing branding icon */}
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-primary to-secondary flex items-center justify-center shadow-xl shadow-primary/20 animate-bounce">
-              <Bot className="h-7 w-7 text-white" />
+            <div className="mb-2">
+              <SynapseLogo size="lg" className="animate-bounce" />
             </div>
             
             <div className="flex flex-col gap-1 mt-2">

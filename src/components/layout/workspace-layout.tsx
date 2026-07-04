@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "../common/command-palette";
 import { FloatingAssistant } from "../common/floating-assistant";
+import { SynapseLogo } from "../common/logo";
 
 interface SidebarItem {
   label: string;
@@ -121,14 +122,33 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         )}
       >
         {/* Logo Section */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-border-color flex-shrink-0">
-          <div className="h-7 w-7 rounded-xl bg-gradient-to-tr from-primary to-secondary shadow-md shadow-primary/20 flex items-center justify-center flex-shrink-0">
-            <Bot className="h-4 w-4 text-white" />
+        <div 
+          onClick={!sidebarOpen ? () => setSidebarOpen(true) : undefined}
+          title={!sidebarOpen ? "Expand Menu" : undefined}
+          className={cn(
+            "h-16 flex items-center border-b border-border-color flex-shrink-0 transition-all duration-300",
+            sidebarOpen ? "px-6 justify-between gap-3" : "justify-center px-0 cursor-pointer"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <SynapseLogo size="md" />
+            {sidebarOpen && (
+              <span className="font-bold text-xs uppercase tracking-widest text-text-primary">
+                Synapse OS
+              </span>
+            )}
           </div>
           {sidebarOpen && (
-            <span className="font-bold text-xs uppercase tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-white to-[#B7BDC8]">
-              Anthopi OS
-            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSidebarOpen(false);
+              }}
+              className="p-1 rounded-lg hover:bg-hover-bg text-[#8D96A7] hover:text-white transition-colors cursor-pointer"
+              title="Collapse Menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
           )}
         </div>
 
@@ -183,18 +203,15 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
             )}
             <button
               onClick={() => router.push("/")}
-              className="p-2 rounded-lg hover:bg-hover-bg text-[#8D96A7] hover:text-[#EF4444] transition-colors"
+              className={cn(
+                "p-2 rounded-lg hover:bg-hover-bg text-[#8D96A7] hover:text-[#EF4444] transition-colors",
+                !sidebarOpen && "mx-auto"
+              )}
               title="Sign Out"
             >
               <LogOut className="h-4 w-4" />
             </button>
           </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-full py-1.5 rounded-lg border border-border-color hover:bg-hover-bg text-[#8D96A7] hover:text-white text-[10px] font-bold tracking-wider uppercase transition-colors"
-          >
-            {sidebarOpen ? "Collapse Menu" : "Expand"}
-          </button>
         </div>
       </aside>
 
@@ -207,7 +224,10 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="font-bold text-xs uppercase tracking-wider text-white">Anthopi OS</span>
+          <div className="flex items-center gap-1.5">
+            <SynapseLogo size="sm" />
+            <span className="font-bold text-xs uppercase tracking-wider text-text-primary">Synapse OS</span>
+          </div>
         </div>
         <button
           onClick={() => setCommandPaletteOpen(true)}
@@ -268,7 +288,7 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         <header className="h-16 border-b border-border-color bg-sidebar-bg flex items-center justify-between px-6 flex-shrink-0 z-20">
           {/* Breadcrumb section */}
           <div className="flex items-center gap-2 text-xs font-medium text-[#8D96A7]">
-            <span>Anthopi</span>
+            <span>Synapse</span>
             <ChevronRight className="h-3 w-3" />
             <span className="text-white font-semibold">{getBreadcrumb()}</span>
           </div>
@@ -322,12 +342,13 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
             </div>
 
             {/* Common Footer */}
-            <footer className="mt-1 pt-6 border-t border-border-color/40 text-[10px] text-text-muted flex flex-col sm:flex-row items-center justify-between gap-4">
+            <footer className="mt-12 pt-6 border-t border-border-color/40 text-[10px] text-text-muted flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-text-primary">Anthopi OS</span>
+                <SynapseLogo size="sm" />
+                <span className="font-bold text-text-primary">Synapse OS</span>
                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-bold">v1.2</span>
               </div>
-              <p className="text-center sm:text-left">© 2026 Anthopi Technologies. All systems operational.</p>
+              <p className="text-center sm:text-left">© 2026 Synapse Technologies. All systems operational.</p>
               <div className="flex gap-4">
                 <a href="#" className="hover:text-text-primary transition-colors">Docs</a>
                 <a href="#" className="hover:text-text-primary transition-colors">Privacy</a>

@@ -70,7 +70,7 @@ export default function DashboardPage() {
               Good afternoon, John Doe.
             </h1>
             <p className="text-xs text-[#B7BDC8] leading-relaxed max-w-xl">
-              Anthopi OS is orchestrating your automated workloads. You have 4 running pipelines, 3 active AI agent sessions, and 12 integrations synced.
+              Synapse OS is orchestrating your automated workloads. You have 4 running pipelines, 3 active AI agent sessions, and 12 integrations synced.
             </p>
           </div>
           <div className="flex items-center gap-4 mt-6 pt-6 border-t border-border-color/60 relative z-10 text-[10px] text-[#8D96A7]">

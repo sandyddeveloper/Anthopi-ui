@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Anthopi UI | Premium AI Agent Orchestrator & Dashboard",
+  title: "Synapse OS | Premium AI Agent Orchestrator & Dashboard",
   description: "Deploy, monitor, and configure autonomous AI agents in real-time. Built with Aceternity UI and Next.js.",
   keywords: ["AI Agents", "Agentic Workflows", "Dashboard", "Aceternity UI", "Next.js", "TypeScript"],
   authors: [{ name: "Antigravity Team" }],
