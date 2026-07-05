@@ -1,32 +1,30 @@
 // src/app/(workspace)/dashboard/page.tsx
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  Bot, 
   Folder, 
-  Zap, 
-  BookOpen, 
-  Link2, 
-  MessageSquare, 
   Activity, 
-  CheckSquare, 
-  Calendar, 
-  Clock, 
-  HardDrive, 
-  Cpu, 
-  Sparkles, 
-  ArrowUpRight, 
-  Plus, 
   Users,
-  ChevronRight,
-  TrendingUp,
+  Layers,
   Server,
-  ShieldAlert,
-  Sliders,
-  Terminal,
-  CreditCard,
-  Bell
+  Bell,
+  Clock,
+  Laptop,
+  Smartphone,
+  Plus,
+  ArrowRight,
+  TrendingUp,
+  FileText,
+  User as UserIcon,
+  ChevronRight,
+  Sparkles,
+  Zap,
+  HardDrive,
+  CalendarDays,
+  ExternalLink,
+  Search,
+  Terminal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
@@ -34,7 +32,28 @@ import { apiClient } from "@/lib/api-client";
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  
+  // Dashboard stats
+  const [stats, setStats] = useState<any>({
+    total_employees: 0,
+    departments: 0,
+    teams: 0,
+    projects: 0,
+    files: 0,
+    notifications: 0
+  });
+
+  const [totalStorage, setTotalStorage] = useState("0 KB");
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [recentFiles, setRecentFiles] = useState<any[]>([]);
+  const [recentNotifs, setRecentNotifs] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [activeSessions, setActiveSessions] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // File upload input ref for quick action
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const cachedUser = localStorage.getItem("user");
@@ -47,348 +66,343 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Fetch audit logs if user is super admin
-  useEffect(() => {
-    if (user?.is_superuser || user?.role_details?.code === 'super_admin') {
-      apiClient.auditLogs.getAuditLogs()
-        .then(res => {
-          const list = Array.isArray(res.data) ? res.data : (res.data as any).results || [];
-          setAuditLogs(list.slice(0, 4));
-        })
-        .catch(err => {
-          console.error("Failed to load audit logs for system console:", err);
-        });
+  const loadDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch dashboard stats
+      const statsRes = await apiClient.dashboard.getStats();
+      if (statsRes.data) {
+        setStats(statsRes.data.cards || {});
+        setRecentActivity(statsRes.data.recent_activity || []);
+        setActiveSessions(statsRes.data.statistics?.active_sessions || 1);
+      }
+
+      // 2. Fetch widgets (recent projects, files, etc)
+      const widgetsRes = await apiClient.dashboard.getWidgets();
+      if (widgetsRes.data) {
+        setRecentProjects(widgetsRes.data.my_projects || []);
+        setRecentFiles(widgetsRes.data.recent_files || []);
+        
+        // Transform recent_notifications format if necessary
+        const rawNotifs = widgetsRes.data.recent_notifications || [];
+        setRecentNotifs(rawNotifs.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          body: n.message,
+          type: n.notification_type || "system",
+          time: n.created_at
+        })));
+      }
+
+      // 3. Fetch all files to sum total storage size
+      const filesRes = await apiClient.knowledge.getFiles();
+      if (filesRes.data && filesRes.data.length > 0) {
+        const totalBytes = filesRes.data.reduce((acc: number, f: any) => acc + (f.file_size || 0), 0);
+        setTotalStorage(formatSize(totalBytes));
+      }
+    } catch (e) {
+      console.error("Dashboard fetch failed, using fallback mocks:", e);
+      // Mocks
+      setRecentActivity([
+        { id: "1", actor_details: { full_name: "Admin Operator" }, action: "synchronized", module: "dashboard", object_repr: "workspace telemetry", created_at: new Date().toISOString() },
+        { id: "2", actor_details: { full_name: "Admin Operator" }, action: "created", module: "department", object_repr: "Engineering Node", created_at: new Date(Date.now() - 3600000).toISOString() }
+      ]);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, [user]);
 
-  // Determine user role tier
-  const isSuperAdmin = user?.is_superuser === true || user?.role_details?.code === "super_admin";
-  const isWorkspaceAdmin = user?.role_details?.code === "admin" || user?.role_details?.code === "manager";
-
-  // Local state for interactive checkboxes
-  const [tasks, setTasks] = useState([
-    { id: 1, text: "Verify GitHub webhook payload integration", done: true, role: "admin" },
-    { id: 2, text: "Attach medical literature folder to PubMed agent", done: false, role: "member" },
-    { id: 3, text: "Authorize Slack notification token sandbox", done: false, role: "admin" },
-    { id: 4, text: "Inspect memory capacity usage statistics", done: true, role: "all" },
-  ]);
-
-  const toggleTask = (id: number) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  const formatSize = (bytes: number) => {
+    if (bytes === 0 || isNaN(bytes)) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const getQuickActions = () => {
-    if (isSuperAdmin) {
-      return [
-        { label: "Tenant Clusters", href: "/admin/tenants", icon: <Server className="h-4 w-4" /> },
-        { label: "System Telemetry", href: "/admin", icon: <Cpu className="h-4 w-4" /> },
-        { label: "Access Roles", href: "/settings", icon: <Sliders className="h-4 w-4" /> },
-        { label: "Audit Ledger", href: "/settings", icon: <Terminal className="h-4 w-4" /> },
-      ];
-    } else if (isWorkspaceAdmin) {
-      return [
-        { label: "Create Project", href: "/projects", icon: <Folder className="h-4 w-4" /> },
-        { label: "Create Agent", href: "/agents", icon: <Bot className="h-4 w-4" /> },
-        { label: "Invite Member", href: "/team", icon: <Plus className="h-4 w-4" /> },
-        { label: "Manage Roles", href: "/settings", icon: <Sliders className="h-4 w-4" /> },
-      ];
-    } else {
-      return [
-        { label: "Start Chat", href: "/chat", icon: <MessageSquare className="h-4 w-4" /> },
-        { label: "Create Project", href: "/projects", icon: <Folder className="h-4 w-4" /> },
-        { label: "Upload Knowledge", href: "/knowledge", icon: <BookOpen className="h-4 w-4" /> },
-        { label: "View Teams", href: "/team", icon: <Users className="h-4 w-4" /> },
-      ];
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("name", file.name);
+    formData.append("file_path", file);
+    formData.append("visibility", "organization");
+
+    try {
+      await apiClient.knowledge.createFile(formData);
+      alert("File uploaded successfully via dashboard quick action!");
+      loadDashboardData();
+    } catch (err: any) {
+      alert(err?.message || "Failed to upload file.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const RECENT_RUNS = [
-    { name: "Sync GitHub Issues to ClickUp", time: "2 min ago", status: "Running", color: "text-[#22C55E]" },
-    { name: "Ingest CSV to Vector DB", time: "15 min ago", status: "Scheduled", color: "text-primary" },
-    { name: "Compile Daily Analytics PDF", time: "1 hour ago", status: "Failed", color: "text-[#EF4444]" },
-    { name: "Notify Slack on New Lead", time: "3 hours ago", status: "Paused", color: "text-[#8B5CF6]" },
-  ];
+  const formatTimeAgo = (dateStr: string) => {
+    if (!dateStr) return "Just now";
+    const date = new Date(dateStr);
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return date.toLocaleDateString();
+  };
 
   return (
-    <div className="flex flex-col gap-6 md:gap-8 max-w-7xl mx-auto w-full animate-fadeIn">
-      {/* Welcome Card & Org Overview */}
-      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-        <div className="flex-1 bg-card-bg border border-border-color rounded-card p-6 md:p-8 flex flex-col justify-between relative overflow-hidden shadow-card text-left">
-          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary/5 blur-2xl pointer-events-none" />
-          <div className="flex flex-col gap-2 relative z-10">
-            {isSuperAdmin ? (
-              <>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#EF4444]/20 bg-[#EF4444]/5 text-[10px] text-[#EF4444] font-bold uppercase tracking-wider self-start">
-                  <ShieldAlert className="h-3 w-3" />
-                  <span>Operator Level Clearance</span>
-                </div>
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white mt-1">
-                  Welcome, System Administrator.
-                </h1>
-                <p className="text-xs text-[#B7BDC8] leading-relaxed max-w-xl mt-1">
-                  You are authenticated with root console permissions. Monitor telemetry metrics, adjust daily cost structures, and verify cluster-wide tenancy logs.
-                </p>
-              </>
-            ) : isWorkspaceAdmin ? (
-              <>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/20 bg-primary/5 text-[10px] text-primary font-bold uppercase tracking-wider self-start">
-                  <Sparkles className="h-3 w-3" />
-                  <span>{user?.organization_details?.name || "Acme"} Workspace Active</span>
-                </div>
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white mt-1">
-                  Good afternoon, {user?.full_name || "Workspace Admin"}.
-                </h1>
-                <p className="text-xs text-[#B7BDC8] leading-relaxed max-w-xl mt-1">
-                  Synapse OS is orchestrating your automated workloads. You have full workspace controls to configure agents, view audit footprints, and delegate team tasks.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/10 bg-primary/5 text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider self-start">
-                  <Users className="h-3 w-3" />
-                  <span>{user?.organization_details?.name || "Acme"} Member Seat</span>
-                </div>
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white mt-1">
-                  Hello, {user?.full_name || "Operator"}.
-                </h1>
-                <p className="text-xs text-[#B7BDC8] leading-relaxed max-w-xl mt-1">
-                  Here is your workspace focus area. Work on integrations, build project files, and run chat assistant agents to expedite tasks.
-                </p>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-4 mt-6 pt-6 border-t border-border-color/60 relative z-10 text-[10px] text-[#8D96A7]">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
-              {isSuperAdmin ? "Server Nodes: Online" : "Workspace Status: Healthy"}
-            </span>
-            <span>•</span>
-            <span>{isSuperAdmin ? "Network: Stable" : "Billing Plan: Enterprise Pro"}</span>
-          </div>
-        </div>
+    <div className="flex flex-col gap-6 md:gap-8 max-w-7xl mx-auto w-full animate-fadeIn text-left">
+      
+      {/* Hidden file uploader */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload} 
+        className="hidden" 
+      />
 
-        {/* Quick Actions Panel */}
-        <div className="w-full lg:w-80 bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col gap-4 text-left">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {getQuickActions().map((action) => (
-              <button
-                key={action.label}
-                onClick={() => router.push(action.href)}
-                className="flex items-center gap-2 p-3 text-left rounded-xl border border-border-color hover:border-primary/20 bg-[#16181D]/60 hover:bg-hover-bg text-[#B7BDC8] hover:text-white transition-all duration-150 group cursor-pointer"
-              >
-                <span className="text-[#8D96A7] group-hover:text-primary transition-colors flex-shrink-0">
-                  {action.icon}
-                </span>
-                <span className="text-[10px] font-semibold">{action.label}</span>
-              </button>
-            ))}
+      {/* Header Context Banner */}
+      <div className="bg-card-bg border border-border-color rounded-card p-6 md:p-8 flex flex-col justify-between relative overflow-hidden shadow-card">
+        <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+        <div className="flex flex-col gap-2 relative z-10">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/20 bg-primary/5 text-[10px] text-primary font-bold uppercase tracking-wider self-start">
+            <Sparkles className="h-3 w-3" />
+            <span>{user?.organization_details?.name || "Workspace Cluster"} Daily Center</span>
           </div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white mt-1">
+            Enterprise Command Center, {user?.full_name || "Workspace Operator"}.
+          </h1>
+          <p className="text-xs text-[#B7BDC8] leading-relaxed max-w-xl">
+            Supervise clear employee nodes, delegate project workspaces, inspect notification logs, and organize shared digital assets across files nodes.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 mt-6 pt-6 border-t border-border-color/60 relative z-10 text-[10px] text-[#8D96A7]">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
+            Cluster State: Active Node
+          </span>
+          <span>•</span>
+          <span>Security Clearance: {user?.role_details?.name || "Operator"}</span>
+          <span>•</span>
+          <span>Active Sessions: {activeSessions} Connected Tiers</span>
         </div>
       </div>
 
-      {/* KPI Stats widgets grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {isSuperAdmin ? (
-          <>
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Active Tenants</span>
-                <span className="text-lg font-bold text-white">3 Clusters</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-primary">
-                <Server className="h-4.5 w-4.5" />
-              </div>
+      {/* Quick Actions Panel */}
+      <div>
+        <h2 className="text-[10px] font-extrabold uppercase tracking-widest text-[#8D96A7] mb-3">Quick Actions Command Panel</h2>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+          <button 
+            onClick={() => router.push("/projects?create=true")}
+            className="flex flex-col items-center justify-center p-4 bg-card-bg border border-border-color hover:border-primary/40 rounded-card transition-all group text-center cursor-pointer shadow-card h-28"
+          >
+            <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:scale-110 transition-transform mb-2">
+              <Plus className="h-5 w-5" />
             </div>
+            <span className="text-[11px] font-bold text-white">Create Project</span>
+          </button>
 
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Cluster Telemetry CPU</span>
-                <span className="text-lg font-bold text-white">12.4%</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-[#22C55E]">
-                <Cpu className="h-4.5 w-4.5" />
-              </div>
+          <button 
+            onClick={() => router.push("/team?invite=true")}
+            className="flex flex-col items-center justify-center p-4 bg-card-bg border border-border-color hover:border-[#7C4DFF]/40 rounded-card transition-all group text-center cursor-pointer shadow-card h-28"
+          >
+            <div className="p-2 bg-[#7C4DFF]/10 rounded-xl text-[#7C4DFF] group-hover:scale-110 transition-transform mb-2">
+              <Users className="h-5 w-5" />
             </div>
+            <span className="text-[11px] font-bold text-white">Invite Employee</span>
+          </button>
 
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Total Active Agents</span>
-                <span className="text-lg font-bold text-white">9 Active</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-secondary">
-                <Bot className="h-4.5 w-4.5" />
-              </div>
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="flex flex-col items-center justify-center p-4 bg-card-bg border border-border-color hover:border-cyan-400/40 rounded-card transition-all group text-center cursor-pointer shadow-card h-28 disabled:opacity-50"
+          >
+            <div className="p-2 bg-cyan-400/10 rounded-xl text-cyan-400 group-hover:scale-110 transition-transform mb-2">
+              {isUploading ? <span className="h-5 w-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin block" /> : <HardDrive className="h-5 w-5" />}
             </div>
+            <span className="text-[11px] font-bold text-white">{isUploading ? "Uploading..." : "Upload File"}</span>
+          </button>
 
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Total Actions/Min</span>
-                <span className="text-lg font-bold text-white">1,482</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-cyan-400">
-                <Activity className="h-4.5 w-4.5" />
-              </div>
+          <button 
+            onClick={() => router.push("/team?focusSearch=true")}
+            className="flex flex-col items-center justify-center p-4 bg-card-bg border border-border-color hover:border-yellow-500/40 rounded-card transition-all group text-center cursor-pointer shadow-card h-28"
+          >
+            <div className="p-2 bg-yellow-500/10 rounded-xl text-yellow-500 group-hover:scale-110 transition-transform mb-2">
+              <Search className="h-5 w-5" />
             </div>
-          </>
-        ) : (
-          <>
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Workspace Projects</span>
-                <span className="text-lg font-bold text-white">8</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-primary">
-                <Folder className="h-4.5 w-4.5" />
-              </div>
-            </div>
+            <span className="text-[11px] font-bold text-white">Search Employee</span>
+          </button>
 
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">AI Employee Status</span>
-                <span className="text-lg font-bold text-white">3 Active</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-secondary">
-                <Bot className="h-4.5 w-4.5" />
-              </div>
+          <button 
+            onClick={() => router.push("/profile")}
+            className="flex flex-col items-center justify-center p-4 bg-card-bg border border-border-color hover:border-emerald-500/40 rounded-card transition-all group text-center cursor-pointer shadow-card h-28 col-span-2 md:col-span-1"
+          >
+            <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500 group-hover:scale-110 transition-transform mb-2">
+              <UserIcon className="h-5 w-5" />
             </div>
-
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Completed Automations</span>
-                <span className="text-lg font-bold text-white">2,842</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-[#22C55E]">
-                <Zap className="h-4.5 w-4.5" />
-              </div>
-            </div>
-
-            <div className="bg-card-bg border border-border-color rounded-card p-4 flex items-center justify-between shadow-card text-left">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Success Rate</span>
-                <span className="text-lg font-bold text-white">99.1%</span>
-              </div>
-              <div className="p-2 bg-[#16181D] border border-border-color rounded-lg text-cyan-400">
-                <TrendingUp className="h-4.5 w-4.5" />
-              </div>
-            </div>
-          </>
-        )}
+            <span className="text-[11px] font-bold text-white">Open Profile</span>
+          </button>
+        </div>
       </div>
 
-      {/* Main Widgets layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Runs Activity & Analytics */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Simulated chart card */}
-          <div className="bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col gap-4 text-left">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  {isSuperAdmin ? "Global Operations Load" : "Automation Success Curve"}
-                </h3>
-                <p className="text-[10px] text-[#8D96A7] mt-0.5">Calculated over past 24 hours of executions.</p>
-              </div>
-              <span className="text-[10px] font-mono text-[#22C55E] bg-[#22C55E]/10 px-2 py-0.5 rounded-full border border-[#22C55E]/20">
-                {isSuperAdmin ? "+4.1% load" : "+14.2% today"}
-              </span>
+      {/* Grid 1: Top KPI cards */}
+      <div>
+        <h2 className="text-[10px] font-extrabold uppercase tracking-widest text-[#8D96A7] mb-3">Workspace Telemetry</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          
+          <div className="bg-card-bg border border-border-color rounded-card p-5 flex items-center justify-between shadow-card">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider truncate">Total Employees</span>
+              <span className="text-lg font-bold text-white">{stats.total_employees || 0} Seats</span>
             </div>
-            
-            {/* SVG Minimalist Area/Line Chart */}
-            <div className="h-44 w-full mt-2 relative">
-              <svg className="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2F81F7" stopOpacity="0.25"/>
-                    <stop offset="100%" stopColor="#2F81F7" stopOpacity="0"/>
-                  </linearGradient>
-                </defs>
-                <path 
-                  d="M0 130 C 50 110, 100 120, 150 90 C 200 60, 250 80, 300 40 C 350 10, 400 40, 450 20 C 480 10, 500 5, 500 5 L 500 150 L 0 150 Z" 
-                  fill="url(#chartGradient)"
-                />
-                <path 
-                  d="M0 130 C 50 110, 100 120, 150 90 C 200 60, 250 80, 300 40 C 350 10, 400 40, 450 20 C 480 10, 500 5, 500 5" 
-                  fill="none" 
-                  stroke="#2F81F7" 
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-                <line x1="0" y1="30" x2="500" y2="30" stroke="#2C313C" strokeDasharray="3,3" opacity="0.3" />
-                <line x1="0" y1="75" x2="500" y2="75" stroke="#2C313C" strokeDasharray="3,3" opacity="0.3" />
-                <line x1="0" y1="120" x2="500" y2="120" stroke="#2C313C" strokeDasharray="3,3" opacity="0.3" />
-              </svg>
-            </div>
-            
-            <div className="flex items-center justify-between text-[9px] text-[#8D96A7] font-mono border-t border-border-color/40 pt-3">
-              <span>08:00 AM</span>
-              <span>12:00 PM</span>
-              <span>04:00 PM</span>
-              <span>08:00 PM</span>
-              <span>12:00 AM</span>
+            <div className="p-2 bg-[#7C4DFF]/15 border border-[#7C4DFF]/20 rounded-xl text-[#7C4DFF] flex-shrink-0">
+              <Users className="h-4 w-4" />
             </div>
           </div>
 
-          {/* Running automations OR Super Admin Audits list */}
-          <div className="bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col gap-4 text-left">
-            <div className="flex items-center justify-between border-b border-border-color/60 pb-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                {isSuperAdmin ? "Global Security Audit Trail" : "Running Workloads"}
-              </h3>
-              <button 
-                onClick={() => router.push(isSuperAdmin ? "/settings" : "/automations")}
-                className="text-[10px] text-primary hover:underline flex items-center gap-1 font-semibold cursor-pointer"
-              >
-                <span>{isSuperAdmin ? "All Logs" : "All Automations"}</span>
-                <ArrowUpRight className="h-3 w-3" />
+          <div className="bg-card-bg border border-border-color rounded-card p-5 flex items-center justify-between shadow-card">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider truncate">Departments</span>
+              <span className="text-lg font-bold text-white">{stats.departments || 0} Units</span>
+            </div>
+            <div className="p-2 bg-emerald-500/15 border border-emerald-500/20 rounded-xl text-emerald-500 flex-shrink-0">
+              <Layers className="h-4 w-4" />
+            </div>
+          </div>
+
+          <div className="bg-card-bg border border-border-color rounded-card p-5 flex items-center justify-between shadow-card">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider truncate">Teams</span>
+              <span className="text-lg font-bold text-white">{stats.teams || 0} Nodes</span>
+            </div>
+            <div className="p-2 bg-yellow-500/15 border border-yellow-500/20 rounded-xl text-yellow-500 flex-shrink-0">
+              <Server className="h-4 w-4" />
+            </div>
+          </div>
+
+          <div className="bg-card-bg border border-border-color rounded-card p-5 flex items-center justify-between shadow-card">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider truncate">Projects</span>
+              <span className="text-lg font-bold text-white">{stats.projects || 0} Projects</span>
+            </div>
+            <div className="p-2 bg-primary/15 border border-primary/20 rounded-xl text-primary flex-shrink-0">
+              <Folder className="h-4 w-4" />
+            </div>
+          </div>
+
+          <div className="bg-card-bg border border-border-color rounded-card p-5 flex items-center justify-between shadow-card">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider truncate">Cloud Storage</span>
+              <span className="text-lg font-bold text-white truncate">{totalStorage}</span>
+            </div>
+            <div className="p-2 bg-cyan-400/15 border border-cyan-400/20 rounded-xl text-cyan-400 flex-shrink-0">
+              <HardDrive className="h-4 w-4" />
+            </div>
+          </div>
+
+          <div className="bg-card-bg border border-border-color rounded-card p-5 flex items-center justify-between shadow-card">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider truncate">Files Count</span>
+              <span className="text-lg font-bold text-white">{stats.files || 0} Assets</span>
+            </div>
+            <div className="p-2 bg-purple-400/15 border border-purple-400/20 rounded-xl text-purple-400 flex-shrink-0">
+              <FileText className="h-4 w-4" />
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Row 2: Attendance, Recent Projects, Recent Files, Notifications */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Attendance (Future) */}
+        <div className="lg:col-span-3 bg-card-bg border border-border-color rounded-card p-5 shadow-card flex flex-col justify-between h-72">
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Attendance Node</span>
+            <h3 className="font-extrabold text-white text-sm">Today's Attendance</h3>
+            <p className="text-[11px] text-[#8D96A7] leading-relaxed mt-2">
+              Attendance tracking module is undergoing cluster scheduling updates. Realtime sign-in and biometric keys integration coming soon.
+            </p>
+          </div>
+          <div className="border-t border-border-color/60 pt-4 flex items-center gap-2 text-[10px] text-[#8D96A7] font-bold">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            <span>State: Under Construction</span>
+          </div>
+        </div>
+
+        {/* Recent Projects */}
+        <div className="lg:col-span-5 bg-card-bg border border-border-color rounded-card p-5 shadow-card flex flex-col justify-between h-72">
+          <div className="flex flex-col gap-3 min-h-0">
+            <div className="flex justify-between items-center border-b border-border-color pb-2">
+              <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Recent Active Projects</span>
+              <button onClick={() => router.push("/projects")} className="text-[10px] text-primary hover:underline font-bold flex items-center gap-0.5">
+                <span>View All</span>
+                <ChevronRight className="h-3 w-3" />
               </button>
             </div>
-
-            <div className="flex flex-col gap-3">
-              {isSuperAdmin ? (
-                auditLogs.length === 0 ? (
-                  <span className="text-xs text-text-muted py-3">No system operator logs.</span>
-                ) : (
-                  auditLogs.map((log, idx) => (
-                    <div 
-                      key={idx}
-                      className="flex items-center justify-between p-3 rounded-xl border border-border-color/50 bg-[#16181D]/30 hover:bg-[#16181D]/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-[#16181D] border border-border-color flex items-center justify-center text-primary">
-                          <Terminal className="h-4 w-4" />
-                        </div>
-                        <div className="flex flex-col gap-0.5 text-left">
-                          <span className="text-xs font-bold text-white">{log.action}</span>
-                          <span className="text-[9px] text-[#8D96A7] font-mono">{log.user_email || "System"} • {log.ip_address}</span>
-                        </div>
-                      </div>
-                      <span className={cn("text-[9px] font-mono uppercase font-bold", log.status_code < 300 ? "text-[#22C55E]" : "text-[#EF4444]")}>
-                        {log.status_code}
-                      </span>
-                    </div>
-                  ))
-                )
+            
+            <div className="flex-1 flex flex-col gap-3.5 mt-1 overflow-y-auto scrollbar-hide">
+              {recentProjects.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-1.5 py-6 text-center">
+                  <span className="text-[11px] text-[#8D96A7]">No projects workspaces configured.</span>
+                </div>
               ) : (
-                RECENT_RUNS.map((run, idx) => (
-                  <div 
-                    key={idx}
-                    className="flex items-center justify-between p-3 rounded-xl border border-border-color/50 bg-[#16181D]/30 hover:bg-[#16181D]/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-[#16181D] border border-border-color flex items-center justify-center text-primary">
-                        <Zap className="h-4 w-4" />
+                recentProjects.slice(0, 3).map((proj) => (
+                  <div key={proj.id} onClick={() => router.push("/projects")} className="flex items-center justify-between gap-3 text-xs cursor-pointer group">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-2 bg-[#16181D] border border-border-color rounded-xl text-primary flex-shrink-0 group-hover:scale-105 transition-transform">
+                        <Folder className="h-4 w-4" />
                       </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-bold text-white">{run.name}</span>
-                        <span className="text-[9px] text-[#8D96A7]">{run.time}</span>
+                      <div className="flex flex-col text-left min-w-0">
+                        <span className="font-bold text-white group-hover:text-primary transition-colors truncate">{proj.name}</span>
+                        <span className="text-[9px] text-[#8D96A7] truncate">Code: {proj.code || "PRJ"}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={cn("text-[9px] font-mono uppercase font-bold", run.color)}>
-                        {run.status}
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-[#8D96A7]" />
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-primary capitalize flex-shrink-0">
+                      {proj.status}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Notifications & Recent Files */}
+        <div className="lg:col-span-4 bg-card-bg border border-border-color rounded-card p-5 shadow-card flex flex-col justify-between h-72">
+          <div className="flex flex-col gap-3 min-h-0">
+            <div className="flex justify-between items-center border-b border-border-color pb-2">
+              <span className="text-[10px] text-[#8D96A7] font-bold uppercase tracking-wider">Unread Alerts</span>
+              <button onClick={() => router.push("/notifications")} className="text-[10px] text-primary hover:underline font-bold flex items-center gap-0.5">
+                <span>Inbox</span>
+                <ChevronRight className="h-3 w-3" />
+              </button>
+            </div>
+
+            <div className="flex-1 flex flex-col gap-3.5 mt-1 overflow-y-auto scrollbar-hide">
+              {recentNotifs.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-1 py-10 text-center">
+                  <Bell className="h-5 w-5 text-[#2C313C] mb-1" />
+                  <span className="text-[10px] text-[#8D96A7]">Notifications inbox is clear.</span>
+                </div>
+              ) : (
+                recentNotifs.slice(0, 3).map((notif) => (
+                  <div key={notif.id} onClick={() => router.push("/notifications")} className="flex gap-2 text-xs cursor-pointer group text-left">
+                    <div className="p-1 bg-[#16181D] rounded text-primary flex-shrink-0 mt-0.5">
+                      <Zap className="h-3 w-3 text-primary" />
+                    </div>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="font-bold text-white group-hover:text-primary transition-colors truncate">{notif.title}</span>
+                      <span className="text-[9px] text-[#8D96A7] line-clamp-1">{notif.body}</span>
                     </div>
                   </div>
                 ))
@@ -397,119 +411,102 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Tasks, Resource Storage, and Scheduler */}
-        <div className="flex flex-col gap-6">
-          {/* Today's Tasks checklist */}
-          <div className="bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col gap-4 text-left">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-              {isSuperAdmin ? "System Operations Checklist" : "Workspace Setup Checklist"}
-            </h3>
-            <div className="flex flex-col gap-3">
-              {tasks
-                .filter(t => isSuperAdmin || t.role === "all" || (isWorkspaceAdmin && t.role === "admin") || (!isWorkspaceAdmin && t.role === "member"))
-                .map((task) => (
-                  <div 
-                    key={task.id}
-                    onClick={() => toggleTask(task.id)}
-                    className="flex items-start gap-3 cursor-pointer group select-none"
-                  >
-                    <div className={cn(
-                      "mt-0.5 h-4 w-4 rounded-md border flex items-center justify-center flex-shrink-0 transition-colors duration-150",
-                      task.done 
-                        ? "bg-primary border-primary text-white" 
-                        : "border-[#2C313C] bg-[#16181D] group-hover:border-primary/40"
-                    )}>
-                      {task.done && <span className="text-[9px] font-bold">✓</span>}
-                    </div>
-                    <span className={cn(
-                      "text-xs leading-tight transition-colors text-left",
-                      task.done ? "text-[#8D96A7] line-through" : "text-[#B7BDC8] group-hover:text-white"
-                    )}>
-                      {task.text}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
+      </div>
 
-          {/* Storage Quota widget */}
-          <div className="bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col gap-4 text-left">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                {isSuperAdmin ? "System Master Storage" : "Vector Storage Cache"}
-              </h3>
-              <HardDrive className="h-4 w-4 text-[#8D96A7]" />
+      {/* Row 3: Recent Activity, Project Timeline, Quick Links */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        
+        {/* Recent Operational Activity feed */}
+        <div className="lg:col-span-5 bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col justify-between min-h-[300px]">
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-border-color pb-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Operational Activities</h3>
+              <button 
+                onClick={() => router.push("/activity")}
+                className="text-[10px] text-primary hover:underline font-bold"
+              >
+                Full Feed
+              </button>
             </div>
-            <div className="flex flex-col gap-1.5 mt-1">
-              <div className="flex justify-between text-[10px] text-[#B7BDC8]">
-                <span>{isSuperAdmin ? "Total Storage Clusters" : "Chunk Cache Storage"}</span>
-                <span className="font-mono text-white">
-                  {isSuperAdmin ? "154 GB / 1.0 TB" : "1.2 GB / 2.0 GB"}
-                </span>
-              </div>
-              <div className="h-2 w-full bg-[#16181D] border border-border-color rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-primary to-secondary rounded-full" 
-                  style={{ width: isSuperAdmin ? "15%" : "60%" }}
-                />
-              </div>
-            </div>
-            <p className="text-[9px] text-[#8D96A7] leading-relaxed">
-              {isSuperAdmin 
-                ? "Global storage nodes report healthy capacity. Index optimizations scheduled automatically weekly."
-                : "Quota reset scheduled in 12 days. Check Vector indexing tools to clear cache manually."
-              }
-            </p>
-          </div>
 
-          {/* Upcoming Scheduler jobs list */}
-          <div className="bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col gap-4 text-left">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                {isSuperAdmin ? "Operator Cron Jobs" : "Scheduled Automations"}
-              </h3>
-              <Calendar className="h-4 w-4 text-[#8D96A7]" />
-            </div>
-            <div className="flex flex-col gap-3">
-              {isSuperAdmin ? (
-                <>
-                  <div className="flex gap-2 text-xs">
-                    <Clock className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-white leading-tight">Sync Global Cluster Maps</span>
-                      <span className="text-[9px] text-[#8D96A7] font-mono">CRON: */5 * * * * (5m)</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 text-xs">
-                    <Clock className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-white leading-tight">Operator Telemetry Report</span>
-                      <span className="text-[9px] text-[#8D96A7] font-mono">CRON: 0 0 * * * (Midnight)</span>
-                    </div>
-                  </div>
-                </>
+            <div className="flex flex-col gap-4">
+              {recentActivity.length === 0 ? (
+                <span className="text-xs text-[#8D96A7] py-6 text-center block">No organizational actions log found.</span>
               ) : (
-                <>
-                  <div className="flex gap-2 text-xs">
-                    <Clock className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-white leading-tight">Database Backup</span>
-                      <span className="text-[9px] text-[#8D96A7] font-mono">CRON: 0 0 * * * (Midnight)</span>
+                recentActivity.slice(0, 4).map((log) => (
+                  <div key={log.id} className="flex gap-3 text-xs items-start text-left">
+                    <div className="p-1.5 bg-[#16181D] rounded-lg text-primary flex-shrink-0 mt-0.5 border border-border-color">
+                      <Terminal className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="font-bold text-white truncate block">{log.actor_details?.full_name || "System"} {log.action} {log.module}</span>
+                      <span className="text-[10px] text-[#8D96A7] truncate block mt-0.5 font-semibold">
+                        Object: {log.object_repr}
+                      </span>
+                      <span className="text-[9px] font-mono text-text-muted mt-0.5">
+                        {formatTimeAgo(log.created_at)}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex gap-2 text-xs">
-                    <Clock className="h-3.5 w-3.5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-bold text-white leading-tight">Marketing Lead Digest</span>
-                      <span className="text-[9px] text-[#8D96A7] font-mono">CRON: */30 * * * * (30m)</span>
-                    </div>
-                  </div>
-                </>
+                ))
               )}
             </div>
           </div>
         </div>
+
+        {/* Recent Files browser list */}
+        <div className="lg:col-span-7 bg-card-bg border border-border-color rounded-card p-6 shadow-card flex flex-col justify-between min-h-[300px]">
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-border-color pb-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Recent Asset Uploads</h3>
+              <button 
+                onClick={() => router.push("/files")}
+                className="text-[10px] text-primary hover:underline font-bold"
+              >
+                Files Node
+              </button>
+            </div>
+
+            <div className="overflow-x-auto scrollbar-hide">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="text-[#8D96A7] font-bold uppercase tracking-wider text-[9px] border-b border-border-color pb-2">
+                    <th className="pb-2">Name</th>
+                    <th className="pb-2">Size</th>
+                    <th className="pb-2">Owner</th>
+                    <th className="pb-2 text-right">Uploaded</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-color/30">
+                  {recentFiles.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-text-muted">No files synced.</td>
+                    </tr>
+                  ) : (
+                    recentFiles.slice(0, 4).map((f) => (
+                      <tr key={f.id} className="hover:bg-hover-bg/25 transition-colors">
+                        <td className="py-3 font-bold text-white">
+                          <span className="flex items-center gap-1.5">
+                            <FileText className="h-3.5 w-3.5 text-primary" />
+                            {f.name}
+                          </span>
+                        </td>
+                        <td className="py-3 text-[#B7BDC8] font-mono">{formatSize(f.file_size)}</td>
+                        <td className="py-3 text-[#B7BDC8]">{f.created_by_details?.full_name || "Operator"}</td>
+                        <td className="py-3 text-right text-text-muted font-mono">
+                          {formatTimeAgo(f.created_at)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
+
     </div>
   );
 }

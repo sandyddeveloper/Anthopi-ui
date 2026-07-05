@@ -114,15 +114,56 @@ async function request<T = any>(
       };
     }
 
-    const payload = await response.json();
+    let payload: any = null;
+    try {
+      payload = await response.json();
+    } catch (e) {
+      // Empty or non-JSON body response (e.g. status 500 HTML pages)
+    }
 
     // Standardize envelope if backend responded with raw django-rest-framework details
     // or if the envelope structure is different
-    const success = payload.success !== undefined ? payload.success : response.ok;
-    const message = payload.message || (response.ok ? 'Success' : 'Request failed');
-    const data = payload.data !== undefined ? payload.data : payload;
-    const errors = payload.errors !== undefined ? payload.errors : (response.ok ? null : payload);
-    const meta = payload.meta || {};
+    const success = (payload && payload.success !== undefined) ? payload.success : response.ok;
+    
+    // Extract actual descriptive error message from errors object if it exists
+    let extractedMessage = payload && payload.message;
+    const errors = (payload && payload.errors !== undefined) ? payload.errors : (response.ok ? null : payload);
+
+    if (!success && (!extractedMessage || extractedMessage === "Error occurred" || extractedMessage === "Request failed")) {
+      const errPayload = errors || payload;
+      if (errPayload) {
+        if (typeof errPayload === 'string') {
+          extractedMessage = errPayload;
+        } else if (typeof errPayload === 'object') {
+          if (errPayload.detail) {
+            extractedMessage = String(errPayload.detail);
+          } else if (errPayload.message) {
+            extractedMessage = String(errPayload.message);
+          } else if (errPayload.non_field_errors) {
+            extractedMessage = Array.isArray(errPayload.non_field_errors)
+              ? errPayload.non_field_errors.join(' ')
+              : String(errPayload.non_field_errors);
+          } else {
+            // Check for field level validation errors (e.g. password: ["This field may not be blank."])
+            const fieldErrors: string[] = [];
+            for (const key in errPayload) {
+              if (Array.isArray(errPayload[key])) {
+                fieldErrors.push(`${key}: ${errPayload[key].join(' ')}`);
+              } else if (typeof errPayload[key] === 'string') {
+                fieldErrors.push(`${key}: ${errPayload[key]}`);
+              }
+            }
+            if (fieldErrors.length > 0) {
+              extractedMessage = fieldErrors.join(' | ');
+            }
+          }
+        }
+      }
+    }
+
+    const message = extractedMessage || (response.ok ? 'Success' : 'Request failed');
+    const data = (payload && payload.data !== undefined) ? payload.data : payload;
+    const meta = (payload && payload.meta) || {};
 
     const envelope: ApiEnvelope<T> = {
       success,
@@ -133,12 +174,16 @@ async function request<T = any>(
     };
 
     if (!success) {
-      throw new Error(message || 'An error occurred during request.');
+      const apiError = new Error(message);
+      (apiError as any).isApiError = true;
+      throw apiError;
     }
 
     return envelope;
   } catch (error: any) {
-    console.error(`API Error [${options.method || 'GET'} ${path}]:`, error);
+    if (!error.isApiError) {
+      console.error(`API Error [${options.method || 'GET'} ${path}]:`, error);
+    }
     throw error;
   }
 }
@@ -296,5 +341,154 @@ export const apiClient = {
         method: 'GET',
       });
     },
+    activateEmployee: (uuid: string) =>
+      request(`/api/v1/employees/${uuid}/activate/`, { method: 'POST' }),
+    deactivateEmployee: (uuid: string) =>
+      request(`/api/v1/employees/${uuid}/deactivate/`, { method: 'POST' }),
+    updateEmployee: (uuid: string, body: any) =>
+      request(`/api/v1/employees/${uuid}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteEmployee: (uuid: string) =>
+      request(`/api/v1/employees/${uuid}/`, { method: 'DELETE' }),
+  },
+
+  // 7. Projects
+  projects: {
+    listProjects: (params?: { priority?: string; status?: string; manager?: string; search?: string }) => {
+      let query = '';
+      if (params) {
+        const parts = [];
+        if (params.priority) parts.push(`priority=${encodeURIComponent(params.priority)}`);
+        if (params.status) parts.push(`status=${encodeURIComponent(params.status)}`);
+        if (params.manager) parts.push(`manager=${encodeURIComponent(params.manager)}`);
+        if (params.search) parts.push(`search=${encodeURIComponent(params.search)}`);
+        if (parts.length > 0) query = `?${parts.join('&')}`;
+      }
+      return request<any[]>(`/api/v1/projects/${query}`, { method: 'GET' });
+    },
+    createProject: (body: any) =>
+      request('/api/v1/projects/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    getProject: (uuid: string) =>
+      request(`/api/v1/projects/${uuid}/`, { method: 'GET' }),
+    updateProject: (uuid: string, body: any) =>
+      request(`/api/v1/projects/${uuid}/`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    deleteProject: (uuid: string) =>
+      request(`/api/v1/projects/${uuid}/`, { method: 'DELETE' }),
+    archiveProject: (uuid: string) =>
+      request(`/api/v1/projects/${uuid}/archive/`, { method: 'POST' }),
+    restoreProject: (uuid: string) =>
+      request(`/api/v1/projects/${uuid}/restore/`, { method: 'POST' }),
+    listMembers: (projectId: string) =>
+      request<any[]>(`/api/v1/projects/${projectId}/members/`, { method: 'GET' }),
+    addMember: (projectId: string, body: any) =>
+      request(`/api/v1/projects/${projectId}/members/`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    deleteMember: (memberId: string) =>
+      request(`/api/v1/projects/members/${memberId}/`, { method: 'DELETE' }),
+  },
+
+  // 8. Folders & Files
+  knowledge: {
+    getFolders: (parentFolder?: string) => {
+      const query = parentFolder ? `?parent_folder=${encodeURIComponent(parentFolder)}` : '';
+      return request<any[]>(`/api/v1/folders/${query}`, { method: 'GET' });
+    },
+    createFolder: (body: any) =>
+      request('/api/v1/folders/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    getFolder: (uuid: string) =>
+      request(`/api/v1/folders/${uuid}/`, { method: 'GET' }),
+    updateFolder: (uuid: string, body: any) =>
+      request(`/api/v1/folders/${uuid}/`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    deleteFolder: (uuid: string) =>
+      request(`/api/v1/folders/${uuid}/`, { method: 'DELETE' }),
+    getFiles: (params?: { folder?: string; project?: string; search?: string }) => {
+      let query = '';
+      if (params) {
+        const parts = [];
+        if (params.folder) parts.push(`folder=${encodeURIComponent(params.folder)}`);
+        if (params.project) parts.push(`project=${encodeURIComponent(params.project)}`);
+        if (params.search) parts.push(`search=${encodeURIComponent(params.search)}`);
+        if (parts.length > 0) query = `?${parts.join('&')}`;
+      }
+      return request<any[]>(`/api/v1/files/${query}`, { method: 'GET' });
+    },
+    createFile: (formData: FormData) =>
+      request('/api/v1/files/', {
+        method: 'POST',
+        body: formData,
+      }),
+    getFile: (uuid: string) =>
+      request(`/api/v1/files/${uuid}/`, { method: 'GET' }),
+    updateFile: (uuid: string, body: any) =>
+      request(`/api/v1/files/${uuid}/`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    deleteFile: (uuid: string) =>
+      request(`/api/v1/files/${uuid}/`, { method: 'DELETE' }),
+    downloadFile: (uuid: string) =>
+      request(`/api/v1/files/${uuid}/download/`, { method: 'GET' }),
+  },
+
+  // 9. Notifications
+  notifications: {
+    listNotifications: (params?: { unread_only?: boolean }) => {
+      const query = params?.unread_only ? '?unread_only=true' : '';
+      return request<any[]>(`/api/v1/notifications/${query}`, { method: 'GET' });
+    },
+    markRead: (notificationId?: string) =>
+      request('/api/v1/notifications/mark-read/', {
+        method: 'POST',
+        body: JSON.stringify({ notification_id: notificationId || null }),
+      }),
+    clearAll: () =>
+      request('/api/v1/notifications/', { method: 'DELETE' }),
+    deleteNotification: (notificationId: string) =>
+      request(`/api/v1/notifications/${notificationId}/`, { method: 'DELETE' }),
+    getPreferences: () =>
+      request<any>('/api/v1/notifications/preferences/', { method: 'GET' }),
+    updatePreferences: (body: any) =>
+      request('/api/v1/notifications/preferences/', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+  },
+
+  // 10. Activities
+  activities: {
+    listActivities: (params?: { module?: string; action?: string }) => {
+      let query = '';
+      if (params) {
+        const parts = [];
+        if (params.module) parts.push(`module=${encodeURIComponent(params.module)}`);
+        if (params.action) parts.push(`action=${encodeURIComponent(params.action)}`);
+        if (parts.length > 0) query = `?${parts.join('&')}`;
+      }
+      return request<any[]>(`/api/v1/activities/${query}`, { method: 'GET' });
+    },
+  },
+
+  // 11. Dashboard & Workspace
+  dashboard: {
+    getStats: () =>
+      request('/api/v1/dashboard/', { method: 'GET' }),
+    getWidgets: () =>
+      request('/api/v1/dashboard/widgets/', { method: 'GET' }),
+    search: (query: string) =>
+      request(`/api/v1/search/?q=${encodeURIComponent(query)}`, { method: 'GET' }),
   },
 };
+

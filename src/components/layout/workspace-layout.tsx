@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutGrid,
@@ -24,7 +24,14 @@ import {
   LogOut,
   Sun,
   Moon,
-  ShieldAlert
+  ShieldAlert,
+  Layers,
+  Sliders,
+  Terminal,
+  Cpu,
+  User,
+  Activity,
+  Server
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "../common/command-palette";
@@ -32,15 +39,10 @@ import { FloatingAssistant } from "../common/floating-assistant";
 import { SynapseLogo } from "../common/logo";
 import { apiClient } from "@/lib/api-client";
 
-interface SidebarItem {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-}
-
 export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -62,7 +64,6 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
       }
     }
 
-    // Refresh user profile details dynamically
     apiClient.users.getProfile()
       .then((res) => {
         setUser(res.data);
@@ -73,7 +74,7 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
       });
   }, [router]);
 
-  // Listen for storage changes to sync profile updates instantly
+  // Listen for storage changes
   useEffect(() => {
     const handleSync = () => {
       const cached = localStorage.getItem("user");
@@ -89,13 +90,8 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     return () => window.removeEventListener("storage", handleSync);
   }, []);
 
-  // Command palette state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-
-  // Copilot panel state
   const [copilotOpen, setCopilotOpen] = useState(false);
-
-  // Theme mode toggle state
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
@@ -122,7 +118,6 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
-  // Ctrl+K keylistener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -134,53 +129,136 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Determine user role tier for sidebar visibility
   const isSuperAdmin = user?.is_superuser === true || user?.role_details?.code === "super_admin";
   const isWorkspaceAdmin = user?.role_details?.code === "admin" || user?.role_details?.code === "manager";
+  const isAdminOrSuper = isSuperAdmin || isWorkspaceAdmin;
 
-  const ALL_SIDEBAR_ITEMS: (SidebarItem & { minRole?: "super" | "admin" | "member" })[] = [
-    { label: "Dashboard", href: "/dashboard", icon: <LayoutGrid className="h-4.5 w-4.5" /> },
-    { label: "Projects", href: "/projects", icon: <Folder className="h-4.5 w-4.5" /> },
-    { label: "AI Agents", href: "/agents", icon: <Bot className="h-4.5 w-4.5" /> },
-    { label: "Automations", href: "/automations", icon: <Zap className="h-4.5 w-4.5" />, minRole: "admin" },
-    { label: "Knowledge", href: "/knowledge", icon: <BookOpen className="h-4.5 w-4.5" /> },
-    { label: "Integrations", href: "/integrations", icon: <Link2 className="h-4.5 w-4.5" />, minRole: "admin" },
-    { label: "Scheduler", href: "/scheduler", icon: <Calendar className="h-4.5 w-4.5" />, minRole: "admin" },
-    { label: "Files", href: "/files", icon: <FolderClosed className="h-4.5 w-4.5" /> },
-    { label: "AI Chat", href: "/chat", icon: <MessageSquare className="h-4.5 w-4.5" /> },
-    { label: "Notifications", href: "/notifications", icon: <Bell className="h-4.5 w-4.5" /> },
-    { label: "Analytics", href: "/analytics", icon: <BarChart3 className="h-4.5 w-4.5" />, minRole: "admin" },
-    { label: "Team", href: "/team", icon: <Users className="h-4.5 w-4.5" />, minRole: "admin" },
-    { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" /> },
+  const isLinkActive = (href: string) => {
+    const [pathPart, queryPart] = href.split("?");
+    if (pathname !== pathPart) return false;
+    if (!queryPart) {
+      // If base path matches, check if there's no tab parameter in active searchParams
+      // or if it's the dashboard / index path.
+      if (pathname === "/organization" || pathname === "/projects" || pathname === "/files") {
+        return !searchParams.get("tab");
+      }
+      return true;
+    }
+    const [key, val] = queryPart.split("=");
+    return searchParams.get(key) === val;
+  };
+
+  const SIDEBAR_SECTIONS = [
+    {
+      items: [
+        { label: "Dashboard", href: "/dashboard", icon: <LayoutGrid className="h-4.5 w-4.5" /> }
+      ]
+    },
+    {
+      title: "Employee Management",
+      items: [
+        { label: "Employees", href: "/team", icon: <Users className="h-4.5 w-4.5" /> },
+        { label: "Departments", href: "/organization?tab=departments", icon: <Layers className="h-4.5 w-4.5" />, indented: true },
+        { label: "Teams", href: "/organization?tab=teams", icon: <Server className="h-4.5 w-4.5" />, indented: true },
+        { label: "Designations", href: "/organization?tab=designations", icon: <Sliders className="h-4.5 w-4.5" />, indented: true }
+      ]
+    },
+    {
+      title: "Project Management",
+      items: [
+        { label: "Projects", href: "/projects", icon: <Folder className="h-4.5 w-4.5" /> },
+        { label: "Project Members", href: "/projects?tab=members", icon: <Users className="h-4.5 w-4.5" />, indented: true }
+      ]
+    },
+    {
+      title: "File Management",
+      items: [
+        { label: "Files", href: "/files", icon: <FolderClosed className="h-4.5 w-4.5" /> },
+        { label: "Shared Files", href: "/files?tab=shared", icon: <Link2 className="h-4.5 w-4.5" />, indented: true }
+      ]
+    },
+    {
+      items: [
+        { label: "Notifications", href: "/notifications", icon: <Bell className="h-4.5 w-4.5" /> },
+        { label: "Activity", href: "/activity", icon: <Activity className="h-4.5 w-4.5" /> }
+      ]
+    },
+    {
+      items: [
+        { label: "My Profile", href: "/profile", icon: <User className="h-4.5 w-4.5" /> }
+      ]
+    },
+    {
+      items: [
+        { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" /> }
+      ]
+    }
   ];
 
-  const SIDEBAR_ITEMS: SidebarItem[] = ALL_SIDEBAR_ITEMS.filter(item => {
-    if (!item.minRole) return true;
-    if (isSuperAdmin) return true;
-    if (item.minRole === "admin" && isWorkspaceAdmin) return true;
-    if (item.minRole === "member") return true;
-    return false;
-  });
-
-  // Helper to determine breadcrumb title based on pathname
   const getBreadcrumb = () => {
     const segments = pathname.split("/").filter(Boolean);
     if (segments.length === 0) return "Home";
     return segments.map(seg => seg.charAt(0).toUpperCase() + seg.slice(1)).join(" / ");
   };
 
-  const activeItem = SIDEBAR_ITEMS.find((item) => pathname === item.href) || SIDEBAR_ITEMS[0];
+  const renderSidebarSections = () => {
+    return SIDEBAR_SECTIONS.map((section, secIdx) => {
+      // If section is specific admin telemetry and not admin, skip
+      const filteredItems = section.items;
+      if (filteredItems.length === 0) return null;
+
+      return (
+        <div key={secIdx} className="flex flex-col gap-1">
+          {secIdx > 0 && <div className="h-px bg-border-color/20 my-2" />}
+          {sidebarOpen && section.title && (
+            <span className="px-3.5 py-1 text-[8px] uppercase tracking-widest text-[#8D96A7] font-extrabold text-left mb-1 block">
+              {section.title}
+            </span>
+          )}
+          {filteredItems.map((item) => {
+            const isActive = isLinkActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 group relative border border-transparent",
+                  isActive
+                    ? "bg-primary/10 text-primary border-primary/5"
+                    : "text-[#B7BDC8] hover:text-white hover:bg-hover-bg",
+                  (item as any).indented && sidebarOpen && "ml-4"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r bg-primary" />
+                )}
+                <span className={cn(isActive ? "text-primary" : "text-[#8D96A7] group-hover:text-white")}>
+                  {item.icon}
+                </span>
+                {sidebarOpen && <span>{item.label}</span>}
+                {!sidebarOpen && (
+                  <span className="absolute left-20 bg-[#252932] border border-border-color text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap">
+                    {item.label}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      );
+    });
+  };
+
 
   return (
     <div className="flex min-h-screen bg-app-bg text-white relative">
-      {/* Desktop Left Sidebar */}
+      {/* Desktop Sidebar */}
       <aside
         className={cn(
           "hidden md:flex flex-col bg-sidebar-bg border-r border-border-color transition-all duration-300 relative z-30 h-screen sticky top-0 flex-shrink-0",
           sidebarOpen ? "w-[280px]" : "w-[88px]"
         )}
       >
-        {/* Logo Section */}
         <div 
           onClick={!sidebarOpen ? () => setSidebarOpen(true) : undefined}
           title={!sidebarOpen ? "Expand Menu" : undefined}
@@ -211,47 +289,17 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
           )}
         </div>
 
-        {/* Navigation items */}
-        <div className={cn("flex-1 p-4 flex flex-col gap-1", sidebarOpen ? "overflow-y-auto scrollbar-hide" : "overflow-visible")}>
-          {SIDEBAR_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 group relative border border-transparent",
-                  isActive
-                    ? "bg-[#2F81F7]/15 text-primary"
-                    : "text-[#B7BDC8] hover:text-white hover:bg-hover-bg"
-                )}
-              >
-                {/* Active left border indicator line */}
-                {isActive && (
-                  <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r bg-primary" />
-                )}
-                <span className={cn(isActive ? "text-primary" : "text-[#8D96A7] group-hover:text-white")}>
-                  {item.icon}
-                </span>
-                {sidebarOpen && <span>{item.label}</span>}
-
-                {/* Collapsed label tooltip */}
-                {!sidebarOpen && (
-                  <span className="absolute left-20 bg-[#252932] border border-border-color text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 whitespace-nowrap">
-                    {item.label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        {/* Sidebar Items */}
+        <div className={cn("flex-1 p-4 flex flex-col gap-1 overflow-y-auto scrollbar-thin")}>
+          {renderSidebarSections()}
         </div>
 
-        {/* Collapse Sidebar Button & User Panel */}
+        {/* Sidebar Footer / Profile */}
         <div className="p-4 border-t border-border-color flex flex-col gap-3 flex-shrink-0 bg-[#111113]">
           <div className="flex items-center justify-between">
             {sidebarOpen && user && (
               <div className="flex items-center gap-2.5 animate-fadeIn">
-                <Link href="/profile" className="h-8 w-8 rounded-full bg-neutral-800 border border-neutral-700 hover:border-primary/40 flex items-center justify-center font-bold text-xs uppercase text-primary transition-colors cursor-pointer" title="View Profile">
+                <Link href="/settings" className="h-8 w-8 rounded-full bg-neutral-800 border border-neutral-700 hover:border-primary/40 flex items-center justify-center font-bold text-xs uppercase text-primary transition-colors cursor-pointer" title="Workspace Settings">
                   {user.full_name
                     ? user.full_name
                         .split(" ")
@@ -261,35 +309,17 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
                     : user.email?.substring(0, 2) || "US"}
                 </Link>
                 <div className="flex flex-col text-left">
-                  <Link href="/profile" className="text-[11px] font-bold text-white hover:text-primary transition-colors truncate max-w-[120px]" title="View Profile">
+                  <span className="text-[11px] font-bold text-white truncate max-w-[120px]">
                     {user.full_name || user.email}
-                  </Link>
-                  {user.role === "superuser" || user.role === "admin" || user.role_details?.code === "super_admin" || user.role_details?.code === "admin" || user.role === "manager" ? (
-                    <Link 
-                      href="/admin" 
-                      className="text-[9px] text-primary hover:underline font-extrabold uppercase tracking-wider flex items-center gap-0.5"
-                    >
-                      <span>Admin Seat</span>
-                      <ChevronRight className="h-2 w-2" />
-                    </Link>
-                  ) : (
-                    <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider">
-                      {user.role_details?.name || user.role || "Member"}
-                    </span>
-                  )}
+                  </span>
+                  <span className="text-[9px] text-[#8D96A7] font-bold uppercase tracking-wider">
+                    {user.role_details?.name || user.role || "Member"}
+                  </span>
                 </div>
               </div>
             )}
             <button
-              onClick={async () => {
-                try {
-                  const refresh = localStorage.getItem("refresh_token");
-                  if (refresh) {
-                    await apiClient.auth.logout(refresh);
-                  }
-                } catch (e) {
-                  console.error(e);
-                }
+              onClick={() => {
                 localStorage.removeItem("access_token");
                 localStorage.removeItem("refresh_token");
                 localStorage.removeItem("user");
@@ -307,7 +337,7 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         </div>
       </aside>
 
-      {/* Mobile Top Navigation & Drawer */}
+      {/* Mobile Header */}
       <div className="md:hidden fixed top-0 inset-x-0 h-14 bg-sidebar-bg border-b border-border-color z-40 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <button
@@ -329,11 +359,11 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         </button>
       </div>
 
-      {/* Mobile Drawer Overlay */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <div className="relative w-72 bg-sidebar-bg h-full flex flex-col p-4 border-r border-border-color">
+          <div className="relative w-72 bg-sidebar-bg h-full flex flex-col p-4 border-r border-border-color text-left">
             <div className="flex items-center justify-between pb-4 border-b border-border-color mb-4">
               <span className="font-bold text-xs uppercase tracking-wider text-white">Navigation</span>
               <button
@@ -343,30 +373,49 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
                 Close
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto flex flex-col gap-1 scrollbar-hide">
-              {SIDEBAR_ITEMS.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium border border-transparent",
-                      isActive
-                        ? "bg-[#2F81F7]/15 text-primary border-[#2F81F7]/10"
-                        : "text-[#B7BDC8] hover:text-white hover:bg-hover-bg"
-                    )}
-                  >
-                    <span className={cn(isActive ? "text-primary" : "text-[#8D96A7]")}>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+            <nav className="flex-1 overflow-y-auto flex flex-col gap-1 scrollbar-hide text-left">
+              {SIDEBAR_SECTIONS.map((section, secIdx) => (
+                <div key={secIdx} className="flex flex-col gap-1">
+                  {secIdx > 0 && <div className="h-px bg-border-color/20 my-2" />}
+                  {section.title && (
+                    <span className="text-[8px] uppercase tracking-widest text-[#8D96A7] font-extrabold mb-1 block">
+                      {section.title}
+                    </span>
+                  )}
+                  {section.items.map((item) => {
+                    const isActive = isLinkActive(item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium border border-transparent",
+                          isActive
+                            ? "bg-primary/10 text-primary border-primary/5"
+                            : "text-[#B7BDC8] hover:text-white hover:bg-hover-bg",
+                          (item as any).indented && "ml-4"
+                        )}
+                      >
+                        <span className={cn(isActive ? "text-primary" : "text-[#8D96A7]")}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
             <div className="pt-4 border-t border-border-color flex items-center justify-between">
-              <span className="text-xs text-[#8D96A7]">Admin Seat</span>
-              <button onClick={() => router.push("/")} className="text-xs text-[#EF4444] font-semibold">
+              <span className="text-xs text-[#8D96A7]">Admin Console</span>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem("access_token");
+                  localStorage.removeItem("refresh_token");
+                  localStorage.removeItem("user");
+                  router.push("/");
+                }} 
+                className="text-xs text-[#EF4444] font-semibold"
+              >
                 Sign Out
               </button>
             </div>
@@ -374,20 +423,16 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         </div>
       )}
 
-      {/* Right Side Main Viewport Container */}
+      {/* Right Side Viewport */}
       <div className="flex-1 flex flex-col min-w-0 md:pl-0 pt-14 md:pt-0 min-h-screen">
-        {/* Desktop Topbar Header */}
         <header className="h-16 border-b border-border-color bg-sidebar-bg flex items-center justify-between px-6 flex-shrink-0 z-20">
-          {/* Breadcrumb section */}
           <div className="flex items-center gap-2 text-xs font-medium text-[#8D96A7]">
             <span>Synapse</span>
             <ChevronRight className="h-3 w-3" />
             <span className="text-white font-semibold">{getBreadcrumb()}</span>
           </div>
 
-          {/* Right Header actions */}
           <div className="flex items-center gap-4">
-            {/* Search Box Trigger */}
             <button
               onClick={() => setCommandPaletteOpen(true)}
               className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 text-xs text-[#8D96A7] hover:text-white border border-border-color bg-[#16181D] hover:bg-hover-bg rounded-lg transition-colors cursor-pointer"
@@ -397,7 +442,6 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
               <kbd className="font-mono text-[9px] px-1 rounded bg-[#2A2F39] text-[#B7BDC8]">⌘K</kbd>
             </button>
 
-            {/* Help Button */}
             <button
               onClick={() => router.push("/settings")}
               className="p-1.5 rounded-lg hover:bg-hover-bg text-[#8D96A7] hover:text-white transition-colors"
@@ -406,16 +450,14 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
               <HelpCircle className="h-4.5 w-4.5" />
             </button>
 
-            {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
               className="p-1.5 rounded-lg hover:bg-hover-bg text-[#8D96A7] hover:text-white transition-colors"
-              title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              title={theme === "dark" ? "Light Mode" : "Dark Mode"}
             >
               {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
             </button>
 
-            {/* Platform AI Copilot Trigger */}
             <button
               onClick={() => setCopilotOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary transition-all duration-200"
@@ -426,14 +468,12 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
           </div>
         </header>
 
-        {/* Content Wrapper */}
         <main className="flex-1 p-6 md:p-8 bg-app-bg flex flex-col items-center">
           <div className="w-full max-w-[1920px] flex-1 flex flex-col mx-auto justify-between">
             <div className="flex-1 flex flex-col gap-6">
               {children}
             </div>
 
-            {/* Common Footer */}
             <footer className="mt-12 pt-6 border-t border-border-color/40 text-[10px] text-text-muted flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <SynapseLogo size="sm" />
@@ -451,7 +491,6 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         </main>
       </div>
 
-      {/* Global Overlays */}
       <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
       <FloatingAssistant isOpen={copilotOpen} onClose={() => setCopilotOpen(false)} />
     </div>

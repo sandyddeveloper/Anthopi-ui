@@ -1,82 +1,31 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { 
   Bot, 
   Sparkles, 
-  Key, 
-  Mail, 
   ShieldCheck, 
   ArrowRight,
   Zap,
-  CheckCircle2,
-  Database,
   Activity,
-  User,
-  GitBranch,
-  Terminal,
-  Play,
   Cpu,
-  Globe,
   Sun,
   Moon,
-  TrendingUp,
-  Phone,
-  Hash
+  Database,
+  Lock,
+  Layers,
+  Terminal,
+  ChevronRight,
+  Star,
+  Network
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { SynapseLogo } from "@/components/common/logo";
-import { apiClient } from "@/lib/api-client";
 
-// Preset configurations for the interactive left pane pipeline simulator
-const PIPELINE_PRESETS = {
-  dev: [
-    { label: "Git Push Commit", type: "trigger", desc: "repo: synapse-ui", icon: <GitBranch className="h-4 w-4" /> },
-    { label: "AI Agent Audit", type: "ai", desc: "Model: DevAgent v2.4", icon: <Bot className="h-4 w-4" /> },
-    { label: "Compiler Test", type: "action", desc: "npm run build (Success)", icon: <Terminal className="h-4 w-4" /> }
-  ],
-  crm: [
-    { label: "Webhook Inbound", type: "trigger", desc: "POST /v1/leads", icon: <Activity className="h-4 w-4" /> },
-    { label: "AI Lead Classifier", type: "ai", desc: "Model: InsightAgent w3.0", icon: <Bot className="h-4 w-4" /> },
-    { label: "Slack Alert Dispatch", type: "action", desc: "Channel: #sales-alerts", icon: <Zap className="h-4 w-4" /> }
-  ],
-  crawler: [
-    { label: "Cron Trigger", type: "trigger", desc: "Interval: */30 * * * *", icon: <Zap className="h-4 w-4" /> },
-    { label: "PubMed Scraper", type: "ai", desc: "Model: ResearchAgent v1.8", icon: <Bot className="h-4 w-4" /> },
-    { label: "Vector DB Ingestion", type: "action", desc: "Database: Pinecone", icon: <Database className="h-4 w-4" /> }
-  ]
-};
-
-export default function AuthPage() {
+export default function LandingPage() {
   const router = useRouter();
-  
-  // Auth flow states
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("user@example.com");
-  const [org, setOrg] = useState("Acme Corporation");
-  const [fullName, setFullName] = useState("Alex Mercer");
-  const [username, setUsername] = useState("alexm");
-  const [phone, setPhone] = useState("+1234567890");
-  const [password, setPassword] = useState("SecurePassword123");
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
-  // Theme state
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  
-  // Global loading states
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [loadStatus, setLoadStatus] = useState("Initializing workspace node...");
 
-  // Left banner interactive states
-  const [runsCount, setRunsCount] = useState(14842);
-  const [presetKey, setPresetKey] = useState<"dev" | "crm" | "crawler">("dev");
-  const [simulatorStatus, setSimulatorStatus] = useState<"idle" | "running" | "success">("idle");
-  const [consoleLogs, setConsoleLogs] = useState<string[]>([
-    "System: Standing by. Select a pipeline preset to test triggers."
-  ]);
-
-  // Load and apply theme on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;
     const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -90,7 +39,6 @@ export default function AuthPage() {
     }
   }, []);
 
-  // Toggle theme utility
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
@@ -102,520 +50,362 @@ export default function AuthPage() {
     }
   };
 
-  // Increment runs dynamically to show live interaction
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRunsCount((prev) => prev + (Math.random() > 0.4 ? 1 : 0));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Preset switch
-  const handlePresetSwitch = (key: "dev" | "crm" | "crawler") => {
-    setPresetKey(key);
-    setSimulatorStatus("idle");
-    setConsoleLogs([
-      `System: Switched template to ${key.toUpperCase()} pipeline preset.`,
-      "System: Click 'Test Run Trigger' to simulate node executions."
-    ]);
-  };
-
-  // Run pipeline simulator demo
-  const triggerSimulatorDemo = () => {
-    if (simulatorStatus === "running") return;
-    setSimulatorStatus("running");
-    setConsoleLogs([`[TEST TRIGGER] Mounting pipeline nodes sequence for preset: ${presetKey.toUpperCase()}...`]);
-
-    const activeNodes = PIPELINE_PRESETS[presetKey];
-    let step = 0;
-
-    const executeNextNode = () => {
-      if (step < activeNodes.length) {
-        const node = activeNodes[step];
-        setConsoleLogs(prev => [...prev, `[NODE RUN] Activating Node: ${node.label} (${node.desc})`]);
-        
-        setTimeout(() => {
-          setConsoleLogs(prev => [...prev, `[NODE SUCCESS] Node completed: ${node.label}`]);
-          step++;
-          executeNextNode();
-        }, 600);
-      } else {
-        setSimulatorStatus("success");
-        setConsoleLogs(prev => [...prev, "[PIPELINE SUCCESS] Automation loop test completed. Status: 200 OK."]);
-      }
-    };
-
-    setTimeout(executeNextNode, 300);
-  };
-
-  // Handle sign in or sign up with API calls and global loader
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setLoadProgress(0);
-    setErrorMsg(null);
-    setLoadStatus("Connecting to authentication server...");
-
-    try {
-      if (authMode === "signin") {
-        // 1. Login user
-        setLoadStatus("Verifying credentials...");
-        setLoadProgress(20);
-        const loginRes = await apiClient.auth.login({ email, password });
-        
-        setLoadStatus("Credentials verified. Storing tokens...");
-        setLoadProgress(50);
-        localStorage.setItem("access_token", loginRes.data.access);
-        localStorage.setItem("refresh_token", loginRes.data.refresh);
-        localStorage.setItem("user", JSON.stringify(loginRes.data.user));
-
-        // 2. Animate and redirect
-        let progress = 50;
-        const progressInterval = setInterval(() => {
-          progress += Math.floor(Math.random() * 15) + 5;
-          if (progress >= 100) {
-            progress = 100;
-            clearInterval(progressInterval);
-            setLoadProgress(100);
-            setLoadStatus("Workspace synchronized. Loading dashboard...");
-            setTimeout(() => {
-              router.push("/dashboard");
-            }, 300);
-          } else {
-            setLoadProgress(progress);
-            if (progress > 85) {
-              setLoadStatus("Starting workspace sessions...");
-            } else if (progress > 70) {
-              setLoadStatus("Synchronizing workspace node metadata...");
-            }
-          }
-        }, 100);
-      } else {
-        // Signup mode: Multi-step process (Register -> Login -> Create Org -> Link Org)
-        
-        // Step A: Register Account
-        setLoadStatus("Registering operator account...");
-        setLoadProgress(15);
-        await apiClient.auth.register({
-          email,
-          password,
-          full_name: fullName,
-          phone,
-          username
-        });
-
-        // Step B: Authenticate
-        setLoadStatus("Authenticating new session...");
-        setLoadProgress(35);
-        const loginRes = await apiClient.auth.login({ email, password });
-        localStorage.setItem("access_token", loginRes.data.access);
-        localStorage.setItem("refresh_token", loginRes.data.refresh);
-        localStorage.setItem("user", JSON.stringify(loginRes.data.user));
-
-        // Step C: Provision Organization
-        setLoadStatus(`Provisioning cluster: ${org}...`);
-        setLoadProgress(60);
-        const orgRes = await apiClient.orgs.createOrganization({
-          name: org,
-          email,
-          industry: "Technology",
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-          language: "en"
-        });
-        const orgId = orgRes.data.id;
-
-        // Step D: Associate profile with org
-        setLoadStatus("Linking workspace permissions...");
-        setLoadProgress(80);
-        await apiClient.users.updateProfile({ organization: orgId });
-
-        // Step E: Fetch complete user profile details
-        setLoadStatus("Fetching sync keys...");
-        setLoadProgress(90);
-        const profileRes = await apiClient.users.getProfile();
-        localStorage.setItem("user", JSON.stringify(profileRes.data));
-
-        setLoadProgress(100);
-        setLoadStatus("Cluster provisioned successfully. Redirecting...");
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 500);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err?.message || "An authentication query error occurred.");
-      setIsLoading(false);
-    }
-  };
-
-  const activeNodes = PIPELINE_PRESETS[presetKey];
-
   return (
-    <main className="min-h-screen bg-app-bg text-text-primary flex flex-col md:flex-row relative overflow-hidden transition-colors duration-200">
-      
-      {/* Floating Theme Toggler (Top-Right) */}
-      <div className="absolute top-6 right-6 z-50">
-        <button
-          onClick={toggleTheme}
-          className="p-2.5 rounded-xl border border-border-color bg-card-bg hover:bg-hover-bg text-text-muted hover:text-text-primary transition-all duration-200 shadow-sm"
-          title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-        >
-          {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-        </button>
-      </div>
+    <div className="min-h-screen bg-app-bg text-text-primary transition-colors duration-200 overflow-hidden relative">
+      <div className="absolute inset-0 bg-workspace-grid opacity-[0.15] pointer-events-none" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+      <div className="absolute -bottom-20 -left-20 w-[500px] h-[500px] rounded-full bg-secondary/5 blur-[120px] pointer-events-none" />
 
-      {/* 1. Left Side: Immersive Brand Showcase & Interactive Banner */}
-      <section className="hidden md:flex flex-col justify-between w-[50%] lg:w-[55%] p-10 bg-sidebar-bg border-r border-border-color relative overflow-hidden h-screen select-none">
-        {/* Abstract grids & moving glow blur backgrounds */}
-        <div className="absolute inset-0 bg-workspace-grid opacity-[0.25] pointer-events-none" />
-        <div className="absolute -top-1/4 -right-1/4 w-[500px] h-[500px] rounded-full bg-primary/10 blur-[130px] pointer-events-none" />
-
-        {/* Top Header branding */}
-        <div className="flex items-center gap-2.5 relative z-10">
-          <SynapseLogo size="sm" />
-          <span className="font-bold text-[11px] uppercase tracking-widest text-text-primary">
-            Synapse OS Workspace
-          </span>
-        </div>
-
-        {/* Immersive 3D Perspective Floating Dashboard Mockup */}
-        <div className="relative flex flex-col items-center justify-center my-auto z-10 w-full">
-          <div 
-            style={{ 
-              perspective: "1200px",
-              transformStyle: "preserve-3d"
-            }}
-            className="w-full max-w-md"
-          >
-            <div 
-              style={{
-                transform: "rotateY(16deg) rotateX(12deg)",
-                transformStyle: "preserve-3d"
-              }}
-              className="bg-card-bg border border-border-color/80 rounded-[24px] p-6 shadow-2xl relative transition-transform duration-500 hover:transform-none cursor-help group"
-            >
-              <div className="absolute inset-0 bg-radial-gradient opacity-[0.4] rounded-[24px] pointer-events-none" />
-              
-              <div className="flex flex-col gap-4 relative z-10">
-                <div className="flex items-center justify-between border-b border-border-color pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
-                    <span className="text-[10px] font-bold text-text-primary uppercase tracking-wider">
-                      Live Command Terminal
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-mono text-text-muted">acme_cluster_status</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl border border-border-color/60 bg-[#16181D]/30 flex flex-col gap-1 text-left">
-                    <span className="text-[8px] text-text-muted uppercase font-bold tracking-wider">Completed Runs</span>
-                    <span className="text-sm font-bold text-text-primary font-mono">{runsCount}</span>
-                  </div>
-                  <div className="p-3 rounded-xl border border-border-color/60 bg-[#16181D]/30 flex flex-col gap-1 text-left">
-                    <span className="text-[8px] text-text-muted uppercase font-bold tracking-wider">Active Workers</span>
-                    <span className="text-sm font-bold text-primary flex items-center gap-1">
-                      <Cpu className="h-3.5 w-3.5" />
-                      <span>3 Active</span>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl border border-border-color/60 bg-[#16181D]/20 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] text-text-muted uppercase font-bold tracking-wider">Daily System Health</span>
-                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <svg className="w-full h-12" viewBox="0 0 100 40" preserveAspectRatio="none">
-                    <path d="M0 35 Q 25 15, 50 25 T 100 5 L 100 40 L 0 40 Z" fill="rgba(47, 129, 247, 0.08)" />
-                    <path d="M0 35 Q 25 15, 50 25 T 100 5" fill="none" stroke="var(--primary)" strokeWidth="1.5" />
-                  </svg>
-                </div>
-
-                <div className="p-3 rounded-xl bg-black/80 border border-border-color/80 font-mono text-[9px] h-20 overflow-y-auto flex flex-col gap-0.5 text-left scrollbar-thin">
-                  {consoleLogs.map((log, idx) => (
-                    <div key={idx} className="truncate text-text-secondary">
-                      <span className="text-text-muted mr-1.5">&gt;</span>
-                      {log}
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={triggerSimulatorDemo}
-                  disabled={simulatorStatus === "running"}
-                  className="w-full py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-[10px] font-bold tracking-wide transition-all shadow-md shadow-primary/10 disabled:opacity-50"
-                >
-                  {simulatorStatus === "running" ? "Executing pipeline nodes..." : "Simulate Workspace Node Trigger"}
-                </button>
-              </div>
-            </div>
+      {/* Header Navigation */}
+      <header className="border-b border-border-color/60 bg-sidebar-bg/85 backdrop-blur-md sticky top-0 z-50 transition-colors duration-200">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <SynapseLogo size="md" />
+            <span className="font-bold text-xs uppercase tracking-widest text-text-primary">
+              Synapse OS
+            </span>
           </div>
+
+          {/* Desktop Navigation links */}
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-text-secondary">
+            <a href="#features" className="hover:text-text-primary transition-colors">Features</a>
+            <a href="#integrations" className="hover:text-text-primary transition-colors">Integrations</a>
+            <a href="#pricing" className="hover:text-text-primary transition-colors">Pricing</a>
+            <a href="#testimonials" className="hover:text-text-primary transition-colors">Testimonials</a>
+          </nav>
+
+          <div className="flex items-center gap-4">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl border border-border-color bg-card-bg hover:bg-hover-bg text-text-muted hover:text-text-primary transition-all duration-200 shadow-sm"
+              title={theme === "dark" ? "Light Mode" : "Dark Mode"}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+
+            {/* Public CTA buttons */}
+            <Link 
+              href="/login" 
+              className="hidden sm:inline-flex text-xs font-bold text-text-secondary hover:text-text-primary px-3 py-2 transition-colors"
+            >
+              Login
+            </Link>
+            <Link 
+              href="/register-org" 
+              className="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all shadow-md shadow-primary/10 cursor-pointer"
+            >
+              Get Started
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative pt-20 pb-16 md:pt-32 md:pb-24">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center text-center relative z-10">
           
-          <p className="text-[10px] text-text-muted mt-8 max-w-sm text-center leading-relaxed">
-            Hover over the command terminal mockup to inspect coordinate depths. Toggle simulations to verify connection triggers instantly.
+          {/* Tagline Badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-[10px] text-primary font-bold uppercase tracking-widest mb-6 animate-pulse">
+            <Sparkles className="h-3 w-3" />
+            <span>Next-Gen Enterprise AI Automation Platform</span>
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-text-primary leading-[1.1] max-w-4xl">
+            Orchestrate Your <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Enterprise AI Agents</span> in One Clean Control Plane
+          </h1>
+
+          {/* Subheading */}
+          <p className="text-sm md:text-lg text-text-secondary max-w-2xl mt-6 leading-relaxed">
+            Provision secure organization nodes, assign granular RBAC roles, invite employee seats, and deploy low-latency automation workloads with root-level audit clearance.
           </p>
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between text-[9px] text-text-muted border-t border-border-color/40 pt-4 relative z-10">
-          <span>Enterprise Secure v1.0</span>
-          <div className="flex gap-3">
-            <a href="#" className="hover:text-text-primary transition-colors">Privacy</a>
-            <a href="#" className="hover:text-text-primary transition-colors">Terms</a>
+          {/* Call to Actions */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 mt-10">
+            <Link 
+              href="/register-org" 
+              className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-extrabold tracking-wide transition-all shadow-lg shadow-primary/20 hover:shadow-primary/30 flex gap-2 group cursor-pointer"
+            >
+              <span>Onboard Organization</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+            <Link 
+              href="/login" 
+              className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 rounded-xl border border-border-color bg-card-bg hover:bg-hover-bg text-text-primary text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              Sign In to Dashboard
+            </Link>
+            <button 
+              onClick={() => alert("Sales Consultation requests: sales@synapse.ai")}
+              className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-6 text-text-secondary hover:text-text-primary text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Contact Sales
+            </button>
           </div>
-        </div>
-      </section>
 
-      {/* 2. Right Side: Authentication Form Panel */}
-      <section className="flex-1 flex flex-col items-center p-6 md:p-8 bg-app-bg relative h-screen overflow-y-auto scrollbar-thin py-10 md:py-16">
-        <div className="absolute inset-0 bg-workspace-grid opacity-[0.1] md:hidden pointer-events-none" />
-
-        <div className="w-full max-w-sm flex flex-col gap-5 relative z-10 my-auto">
-          
-          {/* Branding (Mobile only) */}
-          <div className="md:hidden flex flex-col items-center text-center">
-            <div className="mb-2">
-              <SynapseLogo size="md" />
+          {/* Platform Screenshot Preview Mockup with perspective */}
+          <div className="w-full max-w-5xl mt-16 md:mt-24 relative rounded-[24px] border border-border-color bg-sidebar-bg/60 p-4 shadow-2xl transition-all hover:scale-[1.01] duration-300">
+            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+            <div className="h-6 flex items-center gap-1.5 border-b border-border-color pb-3 mb-4 text-[#8D96A7]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#EF4444]/60" />
+              <span className="h-2.5 w-2.5 rounded-full bg-secondary/60" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#22C55E]/60" />
+              <span className="text-[10px] font-mono ml-4 truncate">synapse-dashboard-client://acme_corp_main_node</span>
             </div>
-            <h1 className="text-sm font-bold text-text-primary">Synapse OS</h1>
-            <p className="text-[10px] text-text-muted mt-1">AI Automation Workspace</p>
-          </div>
 
-          {/* Form Tabs */}
-          <div className="flex bg-[#16181D]/30 border border-border-color p-1 rounded-xl">
-            <button
-              onClick={() => setAuthMode("signin")}
-              className={cn(
-                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                authMode === "signin"
-                  ? "bg-primary text-white shadow-md"
-                  : "text-text-muted hover:text-text-primary"
-              )}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => setAuthMode("signup")}
-              className={cn(
-                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
-                authMode === "signup"
-                  ? "bg-primary text-white shadow-md"
-                  : "text-text-muted hover:text-text-primary"
-              )}
-            >
-              Create Account
-            </button>
-          </div>
-
-          {/* Authentication Input Card */}
-          <div className="bg-card-bg border border-border-color rounded-[24px] p-5 md:p-6 shadow-2xl">
-            <h2 className="text-sm font-bold text-text-primary mb-1 text-left">
-              {authMode === "signin" ? "Workspace Access Portal" : "Provision New Cluster Workspace"}
-            </h2>
-            <p className="text-[10px] text-text-muted mb-4 text-left">
-              Enter details below to synchronize cluster database connections.
-            </p>
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              {/* Error reporting alert */}
-              {errorMsg && (
-                <div className="p-3 text-[11px] rounded-xl border border-[#EF4444]/20 bg-[#EF4444]/5 text-[#EF4444] font-medium text-left animate-fadeIn">
-                  {errorMsg}
+            {/* Fake layout representation for preview */}
+            <div className="grid grid-cols-12 gap-4 h-64 md:h-96 rounded-xl bg-card-bg/60 p-4 border border-border-color/40 select-none overflow-hidden relative">
+              <div className="col-span-3 border-r border-border-color/40 pr-4 flex flex-col gap-2.5 text-left text-[10px] text-text-muted">
+                <span className="h-5 bg-hover-bg rounded-lg w-3/4 mb-2" />
+                <span className="h-7 bg-primary/10 rounded-lg flex items-center px-2 text-primary font-bold">Dashboard Overview</span>
+                <span className="h-7 hover:bg-hover-bg rounded-lg flex items-center px-2">Projects Workspace</span>
+                <span className="h-7 hover:bg-hover-bg rounded-lg flex items-center px-2">AI Worker Seats</span>
+                <span className="h-7 hover:bg-hover-bg rounded-lg flex items-center px-2">Audit Footprints</span>
+                <span className="h-7 hover:bg-hover-bg rounded-lg flex items-center px-2">Security Sessions</span>
+              </div>
+              <div className="col-span-9 flex flex-col gap-4 text-left">
+                <div className="flex justify-between items-center pb-2 border-b border-border-color/30">
+                  <span className="h-4 bg-hover-bg rounded-lg w-1/3" />
+                  <span className="h-6 bg-secondary/15 text-secondary border border-secondary/10 px-2 rounded-lg text-[9px] flex items-center font-bold">NODE STATE: ACTIVE</span>
                 </div>
-              )}
-
-              {/* Full Name for Signup */}
-              {authMode === "signup" && (
-                <div className="flex flex-col gap-1 text-left animate-fadeIn">
-                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
-                    Admin Name
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                      <User className="h-4 w-4" />
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                      placeholder="e.g. Alex Mercer"
-                    />
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 bg-hover-bg/30 border border-border-color/40 rounded-xl flex flex-col gap-1">
+                    <span className="text-[9px] text-text-muted font-bold uppercase tracking-wider">Active Employees</span>
+                    <span className="text-xl font-bold text-text-primary">12 Members</span>
+                  </div>
+                  <div className="p-3 bg-hover-bg/30 border border-border-color/40 rounded-xl flex flex-col gap-1">
+                    <span className="text-[9px] text-text-muted font-bold uppercase tracking-wider">Departments</span>
+                    <span className="text-xl font-bold text-text-primary">4 Units</span>
+                  </div>
+                  <div className="p-3 bg-hover-bg/30 border border-border-color/40 rounded-xl flex flex-col gap-1">
+                    <span className="text-[9px] text-text-muted font-bold uppercase tracking-wider">Active Sessions</span>
+                    <span className="text-xl font-bold text-text-primary">5 Devices</span>
                   </div>
                 </div>
-              )}
-
-              {/* Username for Signup */}
-              {authMode === "signup" && (
-                <div className="flex flex-col gap-1 text-left animate-fadeIn">
-                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                      <Hash className="h-4 w-4" />
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                      placeholder="e.g. alexm"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Phone for Signup */}
-              {authMode === "signup" && (
-                <div className="flex flex-col gap-1 text-left animate-fadeIn">
-                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                      <Phone className="h-4 w-4" />
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                      placeholder="e.g. +1234567890"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Workspace Org Name for Signup */}
-              {authMode === "signup" && (
-                <div className="flex flex-col gap-1 text-left animate-fadeIn">
-                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
-                    Organization / Cluster
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                      <ShieldCheck className="h-4 w-4" />
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={org}
-                      onChange={(e) => setOrg(e.target.value)}
-                      className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                      placeholder="e.g. Acme Corp"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Email Address */}
-              <div className="flex flex-col gap-1 text-left">
-                <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                    <Mail className="h-4 w-4" />
-                  </span>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                    placeholder="you@example.com"
-                  />
+                <div className="flex-1 bg-[#101114]/50 border border-border-color/40 rounded-xl p-3 font-mono text-[9px] text-text-secondary overflow-hidden">
+                  <div>&gt; Syncing cluster maps... DONE (4ms)</div>
+                  <div>&gt; Deploying Docker container workspace: DEV_AGENT (Healthy)</div>
+                  <div>&gt; Security clearance synced for operator: admin@acme.com</div>
+                  <div>&gt; Standing by for instruction sequences...</div>
                 </div>
               </div>
-
-              {/* Password */}
-              <div className="flex flex-col gap-1 text-left">
-                <div className="flex items-center justify-between">
-                  <label className="text-[9px] font-extrabold text-text-muted uppercase tracking-wider">
-                    Secret Key
-                  </label>
-                  {authMode === "signin" && (
-                    <a href="#" className="text-[9px] text-primary hover:underline font-semibold">Forgot Key?</a>
-                  )}
-                </div>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                    <Key className="h-4 w-4" />
-                  </span>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border border-border-color bg-[#16181D] text-text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-                    placeholder="••••••••••••"
-                  />
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                className="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs tracking-wide transition-all duration-200 shadow-lg shadow-primary/10 hover:shadow-primary/25 mt-2 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="h-3.5 w-3.5 fill-current text-white-force" />
-                <span className="text-white-force">
-                  {authMode === "signin" ? "Synchronize Cluster Node" : "Provision Cluster"}
-                </span>
-              </button>
-            </form>
-          </div>
-
-          {/* Secure footnotes */}
-          <div className="text-center text-[10px] text-text-muted flex items-center justify-between px-2">
-            <span>Cluster Status: Healthy</span>
-            <a href="#" className="hover:text-text-primary transition-colors text-primary font-bold">API Logs</a>
+            </div>
           </div>
 
         </div>
       </section>
 
-      {/* 3. Global Fullscreen Boot-up Loader Overlay */}
-      {isLoading && (
-        <div className="fixed inset-0 z-[300] bg-app-bg flex flex-col items-center justify-center animate-fadeIn select-none">
-          <div className="absolute inset-0 bg-workspace-grid opacity-[0.25] pointer-events-none" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
-          
-          <div className="flex flex-col items-center gap-4 text-center z-10">
-            {/* Pulsing branding icon */}
-            <div className="mb-2">
-              <SynapseLogo size="lg" className="animate-bounce" />
-            </div>
-            
-            <div className="flex flex-col gap-1 mt-2">
-              <h3 className="text-sm font-bold text-text-primary tracking-wide">
-                Initializing Workspace Node...
-              </h3>
-              <span className="text-[10px] text-primary font-mono font-bold uppercase tracking-wider animate-pulse">
-                {loadProgress}% complete
-              </span>
-            </div>
-
-            <p className="text-[10px] text-text-muted max-w-xs leading-relaxed mt-1">
-              {loadStatus}
+      {/* Features Section */}
+      <section id="features" className="py-20 border-t border-border-color/60 bg-sidebar-bg/30">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-xs uppercase font-extrabold tracking-widest text-primary">High Performance Architecture</h2>
+            <h3 className="text-2xl md:text-4xl font-bold mt-2 text-text-primary">Engineered for Safe Enterprise Autonomy</h3>
+            <p className="text-xs md:text-sm text-text-secondary mt-3">
+              Establish granular operations protocols, audit compliance checks, and secure container runtimes.
             </p>
+          </div>
 
-            {/* Custom progress loading bar */}
-            <div className="h-1.5 w-48 bg-[#16181D] border border-border-color rounded-full overflow-hidden mt-3 shadow-inner">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                title: "Granular RBAC Clearances",
+                desc: "Establish robust Role-Based Access Controls with checkbox clearance trees. Fine-tune access for members, leads, and administrators.",
+                icon: <ShieldCheck className="h-6 w-6 text-primary" />
+              },
+              {
+                title: "Autonomous Workflows",
+                desc: "Schedule automated trigger hooks, listen to multi-tenant webhooks, and trigger Docker containers on secure cluster modules.",
+                icon: <Zap className="h-6 w-6 text-secondary" />
+              },
+              {
+                title: "Ledger Audit Trails",
+                desc: "Compile complete system event streams. Review IP access records, executed action codes, and status logs on one central logs dashboard.",
+                icon: <Terminal className="h-6 w-6 text-cyan-400" />
+              },
+              {
+                title: "Department Hierarchy",
+                desc: "Structure your business nodes into departments, designate heads, group employees into functional teams, and define job designations.",
+                icon: <Layers className="h-6 w-6 text-[#22C55E]" />
+              }
+            ].map((f, idx) => (
               <div 
-                style={{ width: `${loadProgress}%` }}
-                className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-150 ease-out" 
-              />
-            </div>
+                key={idx}
+                className="p-6 rounded-card border border-border-color bg-card-bg hover:border-primary/20 transition-all hover:translate-y-[-2px] duration-200 text-left shadow-card"
+              >
+                <div className="p-3 bg-hover-bg rounded-xl inline-flex mb-4">
+                  {f.icon}
+                </div>
+                <h4 className="font-bold text-sm text-text-primary">{f.title}</h4>
+                <p className="text-xs text-text-secondary mt-2 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
-      )}
-    </main>
+      </section>
+
+      {/* Integrations Section */}
+      <section id="integrations" className="py-20 border-t border-border-color/60 max-w-7xl mx-auto px-6">
+        <div className="flex flex-col lg:flex-row gap-12 items-center">
+          <div className="flex-1 text-left">
+            <h2 className="text-xs uppercase font-extrabold tracking-widest text-primary">Connected System Nodes</h2>
+            <h3 className="text-2xl md:text-3xl font-bold mt-2 text-text-primary">Integrates with Your Core Dev & Cloud Stacks</h3>
+            <p className="text-xs md:text-sm text-text-secondary mt-3 leading-relaxed">
+              Sync credentials seamlessly. Retrieve vector datasets, broadcast Slack alerts, scrape PubMed documentation, and execute commits directly inside repository threads.
+            </p>
+            <div className="flex items-center gap-2 text-xs font-bold text-primary mt-6 hover:underline cursor-pointer">
+              <span>View All 50+ Integrations</span>
+              <ChevronRight className="h-4 w-4" />
+            </div>
+          </div>
+
+          <div className="flex-1 w-full grid grid-cols-3 gap-4">
+            {[
+              { name: "PostgreSQL", desc: "Data Storage", icon: <Database className="h-5 w-5 text-primary" /> },
+              { name: "Slack Node", desc: "Alert Dispatcher", icon: <Sparkles className="h-5 w-5 text-secondary" /> },
+              { name: "GitHub Repos", desc: "Version Control", icon: <Network className="h-5 w-5 text-[#22C55E]" /> },
+              { name: "Pinecone DB", desc: "Vector Search", icon: <Database className="h-5 w-5 text-cyan-400" /> },
+              { name: "OAuth Secure", desc: "Access Tokens", icon: <Lock className="h-5 w-5 text-[#EF4444]" /> },
+              { name: "DevAgent v2", desc: "AI Orchestrator", icon: <Bot className="h-5 w-5 text-yellow-500" /> }
+            ].map((node, idx) => (
+              <div 
+                key={idx}
+                className="p-4 rounded-xl border border-border-color bg-card-bg/60 text-center flex flex-col items-center justify-center gap-1.5 shadow-sm"
+              >
+                <div className="p-2 bg-hover-bg rounded-lg">
+                  {node.icon}
+                </div>
+                <span className="font-bold text-[10px] text-text-primary">{node.name}</span>
+                <span className="text-[9px] text-text-muted">{node.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials section */}
+      <section id="testimonials" className="py-20 border-t border-border-color/60 bg-sidebar-bg/30">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-xs uppercase font-extrabold tracking-widest text-primary">Security Verified</h2>
+            <h3 className="text-2xl md:text-3xl font-bold mt-2 text-text-primary">Trusted by Systems Operators</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                quote: "Synapse's multi-step organization registration wizard allowed us to onboard our entire engineering team and allocate custom database access tokens within five minutes. Absolutely premium interface.",
+                author: "Richard Hendricks",
+                role: "Chief Architect, Pied Piper"
+              },
+              {
+                quote: "The ability to visually trace AI workflow executions in a live terminal mockup combined with rigorous audit log ledgers makes it a perfect fit for enterprise security regulations.",
+                author: "Monica Hall",
+                role: "Managing Partner, Raviga Systems"
+              },
+              {
+                quote: "We replaced our complex custom role databases with Synapse's RBAC clearance screens. The permission override check trees saved our devs weeks of backend coordination.",
+                author: "Bertram Gilfoyle",
+                role: "Lead Systems Architect"
+              }
+            ].map((t, idx) => (
+              <div 
+                key={idx}
+                className="p-6 rounded-card border border-border-color bg-card-bg text-left flex flex-col justify-between shadow-card"
+              >
+                <p className="text-xs text-text-secondary leading-relaxed italic">"{t.quote}"</p>
+                <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border-color/40">
+                  <div className="h-8 w-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center font-bold text-xs text-primary uppercase">
+                    {t.author.substring(0,2)}
+                  </div>
+                  <div className="flex flex-col text-[10px]">
+                    <span className="font-bold text-text-primary">{t.author}</span>
+                    <span className="text-text-muted">{t.role}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 border-t border-border-color/60 max-w-7xl mx-auto px-6">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <h2 className="text-xs uppercase font-extrabold tracking-widest text-primary">Clear Subscription Plans</h2>
+          <h3 className="text-2xl md:text-3xl font-bold mt-2 text-text-primary">Scale Automation Securely</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto gap-8 items-stretch">
+          {/* Plan 1 */}
+          <div className="p-8 rounded-card border border-border-color bg-card-bg flex flex-col justify-between text-left shadow-card">
+            <div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-xs uppercase text-primary">Developer Cluster</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-bold uppercase">Sandbox</span>
+              </div>
+              <div className="text-2xl font-black text-text-primary font-mono mt-4">$0 <span className="text-xs text-text-secondary font-normal">/ month</span></div>
+              <p className="text-xs text-text-secondary mt-2">Test and simulate workflow actions locally.</p>
+              <ul className="flex flex-col gap-2 mt-6 text-xs text-text-secondary">
+                <li className="flex items-center gap-2">✓ 1 Active Organization Seat</li>
+                <li className="flex items-center gap-2">✓ Interactive Terminal Sandbox</li>
+                <li className="flex items-center gap-2">✓ Limit 3 running AI workflows</li>
+                <li className="flex items-center gap-2">✓ Standard audit log history</li>
+              </ul>
+            </div>
+            <Link 
+              href="/register-org" 
+              className="h-10 rounded-xl border border-border-color hover:bg-hover-bg text-text-primary font-bold text-xs flex items-center justify-center mt-8 transition-colors cursor-pointer"
+            >
+              Get Started Free
+            </Link>
+          </div>
+
+          {/* Plan 2 */}
+          <div className="p-8 rounded-card border-2 border-primary bg-[#16181D]/40 flex flex-col justify-between text-left relative shadow-2xl">
+            <div className="absolute top-4 right-4 text-[9px] font-extrabold text-white bg-primary px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
+              RECOMMENDED
+            </div>
+            <div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-xs uppercase text-primary">Enterprise Pro</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-bold uppercase">Cluster</span>
+              </div>
+              <div className="text-2xl font-black text-text-primary font-mono mt-4">$49 <span className="text-xs text-text-secondary font-normal">/ month</span></div>
+              <p className="text-xs text-text-secondary mt-2">Scale AI deployments globally across your business units.</p>
+              <ul className="flex flex-col gap-2 mt-6 text-xs text-text-secondary">
+                <li className="flex items-center gap-2 font-semibold text-text-primary">✓ Up to 5 Seat Licences</li>
+                <li className="flex items-center gap-2">✓ Full Departments & Teams Org</li>
+                <li className="flex items-center gap-2">✓ Custom Checkbox RBAC Clearance</li>
+                <li className="flex items-center gap-2">✓ Active Session device revokes</li>
+                <li className="flex items-center gap-2">✓ Infinite automated workflows</li>
+              </ul>
+            </div>
+            <Link 
+              href="/register-org" 
+              className="h-10 rounded-xl bg-primary hover:bg-primary-hover text-white font-extrabold text-xs flex items-center justify-center mt-8 transition-all shadow-md shadow-primary/20 cursor-pointer"
+            >
+              Provision Cluster Node
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border-color/60 bg-sidebar-bg/60 py-12 text-center text-xs text-text-secondary mt-12 transition-colors duration-200">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2.5">
+            <SynapseLogo size="sm" />
+            <span className="font-bold text-xs uppercase tracking-widest text-text-primary">Synapse OS</span>
+          </div>
+          <p>© 2026 Synapse Technologies Inc. All systems operational. SOC2 Type II Certified.</p>
+          <div className="flex gap-6">
+            <a href="#" className="hover:text-text-primary transition-colors">Privacy Policy</a>
+            <a href="#" className="hover:text-text-primary transition-colors">Terms of Service</a>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
