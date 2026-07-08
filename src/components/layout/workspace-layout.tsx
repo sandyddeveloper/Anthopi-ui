@@ -31,7 +31,8 @@ import {
   Cpu,
   User,
   Activity,
-  Server
+  Server,
+  Wrench
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "../common/command-palette";
@@ -168,6 +169,20 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
       items: [
         { label: "Projects", href: "/projects", icon: <Folder className="h-4.5 w-4.5" /> },
         { label: "Project Members", href: "/projects?tab=members", icon: <Users className="h-4.5 w-4.5" />, indented: true }
+      ]
+    },
+    {
+      title: "AI Workspace",
+      items: [
+        { label: "AI Dashboard", href: "/ai-dashboard", icon: <Sparkles className="h-4.5 w-4.5" /> },
+        { label: "AI Agents", href: "/agents", icon: <Bot className="h-4.5 w-4.5" /> },
+        { label: "AI Chat", href: "/chat", icon: <MessageSquare className="h-4.5 w-4.5" /> },
+        { label: "Conversations", href: "/conversations", icon: <Terminal className="h-4.5 w-4.5" /> },
+        { label: "Knowledge", href: "/knowledge", icon: <BookOpen className="h-4.5 w-4.5" /> },
+        { label: "Prompts", href: "/prompts", icon: <Zap className="h-4.5 w-4.5" /> },
+        { label: "AI Tools", href: "/ai-tools", icon: <Wrench className="h-4.5 w-4.5" /> },
+        { label: "Models", href: "/models", icon: <Cpu className="h-4.5 w-4.5" /> },
+        { label: "AI Usage", href: "/ai-usage", icon: <BarChart3 className="h-4.5 w-4.5" /> }
       ]
     },
     {

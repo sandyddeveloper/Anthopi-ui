@@ -490,5 +490,60 @@ export const apiClient = {
     search: (query: string) =>
       request(`/api/v1/search/?q=${encodeURIComponent(query)}`, { method: 'GET' }),
   },
+
+  // 12. AI Agents
+  aiAgents: {
+    listCategories: () => request<any[]>('/api/v1/agents/categories/', { method: 'GET' }),
+    listAgents: () => request<any[]>('/api/v1/agents/', { method: 'GET' }),
+    createAgent: (body: any) => request('/api/v1/agents/', { method: 'POST', body: JSON.stringify(body) }),
+    getAgent: (id: string) => request(`/api/v1/agents/${id}/`, { method: 'GET' }),
+    updateAgent: (id: string, body: any) => request(`/api/v1/agents/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteAgent: (id: string) => request(`/api/v1/agents/${id}/`, { method: 'DELETE' }),
+    duplicateAgent: (id: string) => request(`/api/v1/agents/${id}/duplicate/`, { method: 'POST' }),
+    listInstructions: (agentId: string) => request<any[]>(`/api/v1/agents/${agentId}/instructions/`, { method: 'GET' }),
+    createInstruction: (agentId: string, body: any) => request(`/api/v1/agents/${agentId}/instructions/`, { method: 'POST', body: JSON.stringify(body) }),
+    updateInstruction: (agentId: string, id: string, body: any) => request(`/api/v1/agents/${agentId}/instructions/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteInstruction: (agentId: string, id: string) => request(`/api/v1/agents/${agentId}/instructions/${id}/`, { method: 'DELETE' }),
+    listAgentTools: (agentId: string) => request<any[]>(`/api/v1/agents/${agentId}/tools/`, { method: 'GET' }),
+    createAgentTool: (agentId: string, body: any) => request(`/api/v1/agents/${agentId}/tools/`, { method: 'POST', body: JSON.stringify(body) }),
+    updateAgentTool: (agentId: string, id: string, body: any) => request(`/api/v1/agents/${agentId}/tools/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteAgentTool: (agentId: string, id: string) => request(`/api/v1/agents/${agentId}/tools/${id}/`, { method: 'DELETE' }),
+    listTools: () => request<any[]>('/api/v1/tools/', { method: 'GET' }),
+    createTool: (body: any) => request('/api/v1/tools/', { method: 'POST', body: JSON.stringify(body) }),
+    listProviders: () => request<any[]>('/api/v1/providers/', { method: 'GET' }),
+    listModels: () => request<any[]>('/api/v1/models/', { method: 'GET' }),
+    listProviderKeys: () => request<any[]>('/api/v1/provider-keys/', { method: 'GET' }),
+    createProviderKey: (body: any) => request('/api/v1/provider-keys/', { method: 'POST', body: JSON.stringify(body) }),
+    getSettings: () => request('/api/v1/settings/', { method: 'GET' }),
+    updateSettings: (body: any) => request('/api/v1/settings/', { method: 'PUT', body: JSON.stringify(body) }),
+    listPromptCategories: () => request<any[]>('/api/v1/prompts/categories/', { method: 'GET' }),
+    listPrompts: () => request<any[]>('/api/v1/prompts/', { method: 'GET' }),
+    createPrompt: (body: any) => request('/api/v1/prompts/', { method: 'POST', body: JSON.stringify(body) }),
+    getPrompt: (id: string) => request(`/api/v1/prompts/${id}/`, { method: 'GET' }),
+    updatePrompt: (id: string, body: any) => request(`/api/v1/prompts/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deletePrompt: (id: string) => request(`/api/v1/prompts/${id}/`, { method: 'DELETE' }),
+  },
+
+  // 13. AI Chat
+  aiChat: {
+    listConversations: () => request<any[]>('/api/v1/conversations/', { method: 'GET' }),
+    createConversation: (body: any) => request('/api/v1/conversations/', { method: 'POST', body: JSON.stringify(body) }),
+    getConversation: (id: string) => request(`/api/v1/conversations/${id}/`, { method: 'GET' }),
+    updateConversation: (id: string, body: any) => request(`/api/v1/conversations/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteConversation: (id: string) => request(`/api/v1/conversations/${id}/`, { method: 'DELETE' }),
+    listMessages: (conversationId: string) => request<any[]>(`/api/v1/conversations/${conversationId}/messages/`, { method: 'GET' }),
+    createMessage: (conversationId: string, body: any) => request(`/api/v1/conversations/${conversationId}/messages/`, { method: 'POST', body: JSON.stringify(body) }),
+    listUsage: () => request<any[]>('/api/v1/usage/', { method: 'GET' }),
+  },
+
+  // 14. Knowledge Collections
+  knowledgeCollections: {
+    listCollections: () => request<any[]>('/api/v1/knowledge/collections/', { method: 'GET' }),
+    createCollection: (body: any) => request('/api/v1/knowledge/collections/', { method: 'POST', body: JSON.stringify(body) }),
+    getCollection: (id: string) => request(`/api/v1/knowledge/collections/${id}/`, { method: 'GET' }),
+    deleteCollection: (id: string) => request(`/api/v1/knowledge/collections/${id}/`, { method: 'DELETE' }),
+    assignAgent: (collectionId: string, body: any) => request(`/api/v1/knowledge/collections/${collectionId}/assign-agent/`, { method: 'POST', body: JSON.stringify(body) }),
+    addFile: (collectionId: string, body: any) => request(`/api/v1/knowledge/collections/${collectionId}/add-file/`, { method: 'POST', body: JSON.stringify(body) }),
+  },
 };
 
