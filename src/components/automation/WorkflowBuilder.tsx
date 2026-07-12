@@ -25,7 +25,9 @@ import {
   Trash2,
   Minimize2,
   Maximize2,
-  Clock
+  Clock,
+  PanelLeft,
+  PanelRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
@@ -137,17 +139,19 @@ export function WorkflowBuilder({ workflowId, workflowName, onSave }: WorkflowBu
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [debugDrawerOpen, setDebugDrawerOpen] = useState(false);
 
-  // Undo/Redo queues
-  const [history, setHistory] = useState<Array<{ nodes: Node[]; connections: Connection[] }>>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+  // Responsive panel toggles
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
+  // Undo/Redo queues
+  const [history, setHistory] = useState<{ nodes: Node[]; connections: Connection[] }[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // Push state changes to undo history
   const pushToHistory = (newNodes: Node[], newConnections: Connection[]) => {
-    const updatedHistory = history.slice(0, historyIndex + 1);
-    setHistory([...updatedHistory, { nodes: newNodes, connections: newConnections }]);
-    setHistoryIndex(updatedHistory.length);
+    const nextHistory = history.slice(0, historyIndex + 1);
+    setHistory([...nextHistory, { nodes: newNodes, connections: newConnections }]);
+    setHistoryIndex(prev => prev + 1);
   };
 
   const handleUndo = () => {
@@ -178,6 +182,7 @@ export function WorkflowBuilder({ workflowId, workflowName, onSave }: WorkflowBu
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     setSelectedNodeId(nodeId);
+    setInspectorOpen(true);
     setDraggingNodeId(nodeId);
     const node = nodes.find(n => n.id === nodeId);
     if (node) {
@@ -202,6 +207,7 @@ export function WorkflowBuilder({ workflowId, workflowName, onSave }: WorkflowBu
         y: e.clientY - pan.y
       });
       setSelectedNodeId(null);
+      setInspectorOpen(false);
     }
   };
 
@@ -409,6 +415,24 @@ export function WorkflowBuilder({ workflowId, workflowName, onSave }: WorkflowBu
           </span>
         </div>
 
+        {/* Panel toggles – visible on small screens only */}
+        <div className="flex items-center gap-1 lg:hidden mr-1">
+          <button
+            onClick={() => setLibraryOpen(v => !v)}
+            className={cn("p-1.5 rounded hover:bg-hover-bg text-[#8D96A7] hover:text-white cursor-pointer transition-colors", libraryOpen && "bg-primary/10 text-primary")}
+            title="Toggle node library"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setInspectorOpen(v => !v)}
+            className={cn("p-1.5 rounded hover:bg-hover-bg text-[#8D96A7] hover:text-white cursor-pointer transition-colors", inspectorOpen && "bg-primary/10 text-primary")}
+            title="Toggle inspector"
+          >
+            <PanelRight className="h-4 w-4" />
+          </button>
+        </div>
+
         {/* Undo/Redo & Zoom controls */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 border-r border-border-color/60 pr-4">
@@ -461,7 +485,14 @@ export function WorkflowBuilder({ workflowId, workflowName, onSave }: WorkflowBu
 
       <div className="flex-1 flex overflow-hidden relative">
         {/* Left Side: Drag & Drop Node Library */}
-        <div className="w-56 bg-[#15171C]/90 border-r border-border-color overflow-y-auto scrollbar-thin p-4 flex flex-col gap-5 text-left flex-shrink-0">
+        {/* On mobile it is an absolute overlay drawer, always-visible inline on lg+ */}
+        <div className={cn(
+          "bg-[#15171C]/95 border-r border-border-color overflow-y-auto scrollbar-thin p-4 flex flex-col gap-5 text-left flex-shrink-0 transition-all duration-200",
+          "lg:relative lg:translate-x-0 lg:w-56 lg:flex",
+          libraryOpen
+            ? "absolute left-0 top-0 bottom-0 z-30 w-56 flex shadow-2xl"
+            : "hidden lg:flex"
+        )}>
           <div>
             <h4 className="text-[10px] font-bold text-[#8D96A7] uppercase tracking-wider mb-2">Triggers</h4>
             <div className="flex flex-col gap-1.5">
@@ -688,7 +719,14 @@ export function WorkflowBuilder({ workflowId, workflowName, onSave }: WorkflowBu
         </div>
 
         {/* Right Side: Selected Node Inspector Panel */}
-        <div className="w-64 bg-[#15171C]/90 border-l border-border-color overflow-y-auto scrollbar-thin p-4 flex flex-col justify-between text-left flex-shrink-0 z-10">
+        {/* On mobile it is an absolute overlay drawer, always-visible inline on lg+ */}
+        <div className={cn(
+          "bg-[#15171C]/95 border-l border-border-color overflow-y-auto scrollbar-thin p-4 flex flex-col justify-between text-left flex-shrink-0 z-10 transition-all duration-200",
+          "lg:relative lg:translate-x-0 lg:w-64 lg:flex",
+          inspectorOpen
+            ? "absolute right-0 top-0 bottom-0 z-30 w-64 flex shadow-2xl"
+            : "hidden lg:flex"
+        )}>
           {selectedNode ? (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-border-color/60 pb-2.5 mb-1">

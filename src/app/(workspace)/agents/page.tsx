@@ -832,7 +832,7 @@ export default function AgentsPage() {
               {detailsTab === "knowledge" && (
                 <div className="flex flex-col gap-4 text-left">
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">Assigned Knowledge Bases</h4>
-                  <div className="border border-border-color rounded-xl overflow-hidden">
+                  <div className="border border-border-color rounded-xl overflow-x-auto scrollbar-hide">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-[#16181D] border-b border-border-color text-[#8D96A7] font-bold">

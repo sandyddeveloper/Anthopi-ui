@@ -394,7 +394,7 @@ function SettingsPageContent() {
 
             <div className="flex flex-col gap-2 mt-4">
               <h4 className="font-bold text-xs text-white">Active Login Sessions</h4>
-              <div className="border border-border-color/60 rounded-xl overflow-hidden">
+              <div className="border border-border-color/60 rounded-xl overflow-x-auto scrollbar-hide">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#16181D]/30 border-b border-border-color/60 text-[#8D96A7] font-bold uppercase tracking-wider text-[9px] pb-2 pt-2">

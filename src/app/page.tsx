@@ -334,51 +334,62 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-app-bg text-text-primary transition-colors duration-300 relative selection:bg-primary/30 selection:text-white">
-      {/* Decorative glows */}
+    <div className="min-h-screen bg-app-bg text-text-primary transition-colors duration-300 relative overflow-x-hidden w-full selection:bg-primary/30 selection:text-white">
+      {/* Decorative glows — kept inside overflow-hidden so they never scroll horizontally */}
       <div className="absolute inset-0 bg-workspace-grid opacity-[0.06] pointer-events-none" />
-      <div className="absolute left-[-10rem] top-[-10rem] h-96 w-96 rounded-full bg-primary/10 blur-[150px] pointer-events-none" />
-      <div className="absolute right-[-5rem] top-12 h-96 w-96 rounded-full bg-secondary/10 blur-[150px] pointer-events-none" />
+      <div className="absolute left-0 top-[-10rem] h-96 w-64 rounded-full bg-primary/10 blur-[150px] pointer-events-none" />
+      <div className="absolute right-0 top-12 h-96 w-64 rounded-full bg-secondary/10 blur-[150px] pointer-events-none" />
       <div className="absolute bottom-40 left-1/4 h-80 w-80 rounded-full bg-cyan-400/5 blur-[150px] pointer-events-none" />
 
       {/* STICKY HEADER */}
       <header className="sticky top-0 z-50 border-b border-border-color/40 bg-app-bg/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+
+          {/* Logo */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <SynapseLogo size="md" />
-            <span className="text-xs font-black uppercase tracking-[0.4em] text-text-primary">
+            <span className="hidden sm:block text-xs font-black uppercase tracking-[0.3em] text-text-primary whitespace-nowrap">
               Synapse OS
             </span>
           </div>
 
-          {/* Desktop Nav */}
-          <nav className="hidden items-center gap-8 text-xs font-bold tracking-wider text-text-secondary md:flex uppercase">
+          {/* Desktop Nav — hidden below md */}
+          <nav className="hidden md:flex items-center gap-6 text-xs font-bold tracking-wider text-text-secondary uppercase">
             <a href="#features" className="transition-colors hover:text-text-primary">Features</a>
-            <a href="#simulator" className="transition-colors hover:text-text-primary">Interactive Demo</a>
+            <a href="#simulator" className="transition-colors hover:text-text-primary">Demo</a>
             <a href="#telemetry" className="transition-colors hover:text-text-primary">Telemetry</a>
             <a href="#pricing" className="transition-colors hover:text-text-primary">Pricing</a>
-            <a href="#contact" className="transition-colors hover:text-text-primary">Inquire</a>
+            <a href="#contact" className="transition-colors hover:text-text-primary">Contact</a>
           </nav>
 
-          <div className="flex items-center gap-4">
+          {/* Right-side actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Theme toggle — always visible */}
             <button
               onClick={toggleTheme}
-              className="rounded-xl border border-border-color/60 bg-card-bg/60 p-2.5 text-text-muted transition-all hover:bg-hover-bg hover:text-text-primary"
+              className="rounded-xl border border-border-color/60 bg-card-bg/60 p-2 text-text-muted transition-all hover:bg-hover-bg hover:text-text-primary flex-shrink-0"
               title={theme === "dark" ? "Light Mode" : "Dark Mode"}
             >
-              {theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-indigo-500" />}
+              {theme === "dark" ? <Sun className="h-3.5 w-3.5 text-amber-400" /> : <Moon className="h-3.5 w-3.5 text-indigo-500" />}
             </button>
-            <Link href="/login" className="hidden text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:text-text-primary sm:inline-flex">
+
+            {/* Login — only on sm+ */}
+            <Link href="/login" className="hidden sm:inline-flex text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:text-text-primary whitespace-nowrap">
               Login
             </Link>
-            <Link href="/register-org" className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-xs font-black uppercase tracking-wider text-white transition-all hover:bg-primary-hover shadow-lg shadow-primary/20">
+
+            {/* CTA — hidden on mobile (moved into mobile menu) */}
+            <Link
+              href="/register-org"
+              className="hidden sm:inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-black uppercase tracking-wider text-white transition-all hover:bg-primary-hover shadow-lg shadow-primary/20 whitespace-nowrap"
+            >
               Launch Workspace
             </Link>
 
-            {/* Mobile menu trigger */}
-            <button 
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
-              className="rounded-xl border border-border-color/60 bg-card-bg/60 p-2.5 text-text-muted hover:text-text-primary md:hidden"
+            {/* Mobile hamburger — hidden on md+ */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="rounded-xl border border-border-color/60 bg-card-bg/60 p-2 text-text-muted hover:text-text-primary md:hidden flex-shrink-0"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
@@ -388,11 +399,11 @@ export default function LandingPage() {
         {/* Mobile menu panel */}
         <AnimatePresence>
           {mobileMenuOpen && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute left-0 right-0 top-16 border-b border-border-color bg-app-bg p-6 shadow-xl z-40 md:hidden"
+              className="absolute left-0 right-0 top-14 sm:top-16 border-b border-border-color bg-app-bg px-5 py-6 shadow-xl z-40 md:hidden"
             >
               <div className="flex flex-col gap-4 text-sm font-semibold text-text-secondary">
                 <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-text-primary">Features</a>
@@ -402,15 +413,22 @@ export default function LandingPage() {
                 <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-text-primary">Inquire</a>
                 <hr className="border-border-color/60" />
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="hover:text-text-primary">Login</Link>
+                <Link
+                  href="/register-org"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-primary text-xs font-black uppercase tracking-wider text-white shadow-md"
+                >
+                  Launch Workspace
+                </Link>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </header>
 
-      <main>
+      <main className="w-full">
         {/* HERO SECTION WITH DYNAMIC STARS */}
-        <section className="relative px-6 py-12 md:py-24 overflow-hidden border-b border-border-color/40">
+        <section className="relative px-4 sm:px-6 py-12 md:py-24 overflow-hidden border-b border-border-color/40">
           <div className="absolute inset-0 z-0 opacity-40">
             <SparklesCore
               id="hero-sparkles"
@@ -430,7 +448,7 @@ export default function LandingPage() {
                 Visual Orchestration Layer
               </div>
 
-              <h1 className="text-4xl font-black tracking-tight text-text-primary sm:text-6xl md:text-7.5xl leading-[1.05]">
+              <h1 className="text-4xl font-black tracking-tight text-text-primary sm:text-5xl md:text-7xl xl:text-8xl leading-[1.05]">
                 Orchestrate Teams of
                 <span className="block bg-gradient-to-r from-primary via-secondary to-cyan-400 bg-clip-text text-transparent py-2">
                   AI Agents. Visually.
@@ -487,7 +505,7 @@ export default function LandingPage() {
                   <span className="text-[10px] font-mono text-emerald-400">TELEMETRY SECURE</span>
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="grid gap-6 grid-cols-1 lg:grid-cols-[1.2fr_0.8fr]">
                   {/* LEFT INTERACTIVE FLOW CANVAS */}
                   <div className="rounded-2xl border border-border-color/60 bg-sidebar-bg/60 p-4 sm:p-6 flex flex-col justify-between min-h-[380px] relative overflow-hidden">
                     <div className="flex items-center justify-between border-b border-border-color/50 pb-3 mb-6">
@@ -545,7 +563,7 @@ export default function LandingPage() {
                       </svg>
 
                       {/* Node 1: Trigger */}
-                      <div className={`relative z-10 w-[240px] flex items-center gap-3 rounded-xl border transition-all duration-300 ${
+                      <div className={`relative z-10 w-full max-w-[280px] mx-auto sm:mx-0 sm:w-[240px] flex items-center gap-3 rounded-xl border transition-all duration-300 ${
                         simState === "trigger" 
                           ? "bg-primary/10 border-primary shadow-[0_0_15px_rgba(239,68,68,0.15)] scale-[1.03]" 
                           : "bg-card-bg border-border-color/70"
@@ -567,7 +585,7 @@ export default function LandingPage() {
                       </div>
 
                       {/* Node 2: AI Processor */}
-                      <div className={`relative z-10 w-[240px] flex items-center gap-3 rounded-xl border transition-all duration-300 ${
+                      <div className={`relative z-10 w-full max-w-[280px] mx-auto sm:mx-0 sm:w-[240px] flex items-center gap-3 rounded-xl border transition-all duration-300 ${
                         simState === "ai" 
                           ? "bg-secondary/15 border-secondary shadow-[0_0_15px_rgba(124,77,255,0.2)] scale-[1.03]" 
                           : "bg-card-bg border-border-color/70"
@@ -587,7 +605,7 @@ export default function LandingPage() {
                       </div>
 
                       {/* Node 3: Action Endpoint */}
-                      <div className={`relative z-10 w-[240px] flex items-center gap-3 rounded-xl border transition-all duration-300 ${
+                      <div className={`relative z-10 w-full max-w-[280px] mx-auto sm:mx-0 sm:w-[240px] flex items-center gap-3 rounded-xl border transition-all duration-300 ${
                         simState === "action" 
                           ? "bg-emerald-500/10 border-emerald-500/80 shadow-[0_0_15px_rgba(16,185,129,0.15)] scale-[1.03]" 
                           : "bg-card-bg border-border-color/70"
@@ -611,7 +629,7 @@ export default function LandingPage() {
                   </div>
 
                   {/* RIGHT SIMULATED TELEMETRY LOGS */}
-                  <div className="rounded-2xl border border-border-color/60 bg-black p-4 flex flex-col h-[380px] overflow-hidden justify-between font-mono text-[11px] shadow-inner text-zinc-300">
+                  <div className="rounded-2xl border border-border-color/60 bg-black p-4 flex flex-col h-[300px] sm:h-[380px] overflow-hidden justify-between font-mono text-[11px] shadow-inner text-zinc-300">
                     <div className="flex items-center justify-between border-b border-neutral-900 pb-2 mb-2">
                       <div className="flex items-center gap-1.5">
                         <div className="h-2.5 w-2.5 rounded-full bg-rose-500" />
@@ -690,7 +708,7 @@ export default function LandingPage() {
         </section>
 
         {/* LOGO CLOUD (SOCIAL PROOF) */}
-        <section className="border-b border-border-color/40 bg-sidebar-bg/15 py-10">
+        <section className="border-b border-border-color/40 bg-sidebar-bg/15 py-10 px-4 sm:px-0">
           <div className="mx-auto max-w-7xl px-6 text-center">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">
               Empowering autonomous engineering setups at scale
@@ -706,7 +724,7 @@ export default function LandingPage() {
         </section>
 
         {/* DETAILED STATS ROW */}
-        <section className="py-16 mx-auto max-w-7xl px-6 border-b border-border-color/40">
+        <section className="py-16 mx-auto max-w-7xl px-4 sm:px-6 border-b border-border-color/40">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
               <div key={stat.label} className="rounded-2xl border border-border-color/70 bg-card-bg/50 p-6 backdrop-blur-md shadow-sm relative overflow-hidden group">
@@ -719,8 +737,8 @@ export default function LandingPage() {
         </section>
 
         {/* INTEGRATIONS SLIDER / GRID */}
-        <section className="py-20 bg-sidebar-bg/20 border-b border-border-color/40">
-          <div className="mx-auto max-w-7xl px-6">
+        <section className="py-14 sm:py-20 bg-sidebar-bg/20 border-b border-border-color/40">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] items-center">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">Extendable Node Toolset</p>
@@ -756,8 +774,8 @@ export default function LandingPage() {
         </section>
 
         {/* PRIMARY FEATURES GRID (USING WORKSPACE COMPONENT LOGIC) */}
-        <section id="features" className="py-20 border-b border-border-color/40">
-          <div className="mx-auto max-w-7xl px-6">
+        <section id="features" className="py-14 sm:py-20 border-b border-border-color/40">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <div className="mb-12 max-w-3xl">
               <p className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">Enterprise Architecture</p>
               <h2 className="mt-3 text-3xl font-black text-text-primary sm:text-4xl tracking-tight leading-tight">
@@ -800,9 +818,9 @@ export default function LandingPage() {
         </section>
 
         {/* ACTIVE AGENT TELEMETRY / HEARTBEAT */}
-        <section id="telemetry" className="py-20 bg-sidebar-bg/10 border-b border-border-color/40">
-          <div className="mx-auto max-w-7xl px-6">
-            <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
+        <section id="telemetry" className="py-14 sm:py-20 bg-sidebar-bg/10 border-b border-border-color/40">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="grid gap-12 grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] items-center">
               <div>
                 <div className="rounded-2xl border border-border-color/70 bg-card-bg p-5 font-mono text-[11px] shadow-lg">
                   <div className="flex items-center justify-between border-b border-border-color/60 pb-3 mb-4">
@@ -825,7 +843,7 @@ export default function LandingPage() {
                             agent.status === "RUNNING" ? "bg-secondary/15 text-secondary animate-pulse" : "bg-neutral-800 text-zinc-500"
                           }`}>{agent.status}</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] text-text-muted">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-[10px] text-text-muted">
                           <div>
                             <p>Model Pool</p>
                             <p className="text-text-secondary mt-0.5">{agent.model}</p>
@@ -875,8 +893,8 @@ export default function LandingPage() {
         </section>
 
         {/* ACCORDION FAQ */}
-        <section className="py-20 border-b border-border-color/40">
-          <div className="mx-auto max-w-4xl px-6">
+        <section className="py-14 sm:py-20 border-b border-border-color/40">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6">
             <div className="text-center mb-12">
               <p className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">Faq</p>
               <h2 className="mt-3 text-3xl font-black text-text-primary tracking-tight sm:text-4xl leading-tight">
@@ -916,8 +934,8 @@ export default function LandingPage() {
         </section>
 
         {/* PRICING SECTION */}
-        <section id="pricing" className="py-20 bg-sidebar-bg/10 border-b border-border-color/40">
-          <div className="mx-auto max-w-7xl px-6">
+        <section id="pricing" className="py-14 sm:py-20 bg-sidebar-bg/10 border-b border-border-color/40">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <div className="text-center mb-12">
               <p className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">Pricing tiers</p>
               <h2 className="mt-3 text-3xl font-black text-text-primary tracking-tight sm:text-4xl">
@@ -1006,10 +1024,10 @@ export default function LandingPage() {
         </section>
 
         {/* DYNAMIC CONTACT FORM WITH GLASSMORPHISM */}
-        <section id="contact" className="py-20 px-6">
-          <div className="mx-auto max-w-5xl rounded-[32px] border border-border-color/70 bg-card-bg/40 p-8 sm:p-12 shadow-[0_20px_80px_rgba(0,0,0,0.08)] backdrop-blur-md relative overflow-hidden">
+        <section id="contact" className="py-14 sm:py-20 px-4 sm:px-6">
+          <div className="mx-auto max-w-5xl rounded-[32px] border border-border-color/70 bg-card-bg/40 p-5 sm:p-8 lg:p-12 shadow-[0_20px_80px_rgba(0,0,0,0.08)] backdrop-blur-md relative overflow-hidden">
             <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
-            <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
+            <div className="grid gap-10 grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] items-center">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">Inquire Fleet Deployment</p>
                 <h2 className="mt-3 text-3xl font-black text-text-primary tracking-tight sm:text-4xl leading-tight">
@@ -1105,7 +1123,7 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="border-t border-border-color/50 bg-sidebar-bg/60 py-12 text-xs text-text-secondary">
-        <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 mb-8">
             <div className="space-y-4">
               <div className="flex items-center gap-2.5">
