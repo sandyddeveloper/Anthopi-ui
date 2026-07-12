@@ -191,3 +191,46 @@ body {
   -ms-overflow-style: none !important;  /* IE and Edge */
   scrollbar-width: none !important;  /* Firefox */
 }
+
+/* Redesigned Landing Page Keyframe Animations */
+@keyframes wirePulse {
+  0% {
+    opacity: 0.4;
+    r: 3px;
+  }
+  50% {
+    opacity: 1;
+    r: 6.5px;
+  }
+  100% {
+    opacity: 0.4;
+    r: 3px;
+  }
+}
+.animate-wirePulse {
+  animation: wirePulse 1.2s infinite ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.animate-blink {
+  animation: blink 0.9s step-end infinite;
+}
+
