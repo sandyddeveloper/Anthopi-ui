@@ -132,10 +132,7 @@ function TeamRegistryContent() {
         })
         .catch(err => {
           console.error("Failed to load user activities:", err);
-          setUserActivities([
-            { action: "Login", created_at: new Date().toISOString(), module: "user", object_repr: "Dashboard session" },
-            { action: "Project Assignment", created_at: new Date(Date.now() - 3600000).toISOString(), module: "project", object_repr: "Project Alpha" }
-          ]);
+          setUserActivities([]);
         });
     } else {
       setUserActivities([]);

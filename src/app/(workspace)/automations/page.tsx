@@ -1,258 +1,550 @@
 "use client";
-import React, { useState } from "react";
-import { 
-  Zap, 
-  Plus, 
-  Search, 
-  Play, 
-  ZoomIn, 
-  ZoomOut, 
-  History, 
-  Settings, 
-  Copy, 
-  Check, 
-  Trash2, 
-  Database,
-  ArrowRight,
-  Terminal,
-  Activity,
-  Maximize2
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { apiClient } from "@/lib/api-client";
 
+// Import custom sub-views
+import { AutomationDashboard } from "@/components/automation/AutomationDashboard";
+import { WorkflowList } from "@/components/automation/WorkflowList";
+import { WorkflowBuilder } from "@/components/automation/WorkflowBuilder";
+import { TemplatesGallery } from "@/components/automation/TemplatesGallery";
+import { ExecutionCenter } from "@/components/automation/ExecutionCenter";
+import { CronScheduler } from "@/components/automation/CronScheduler";
+import { VariableManager } from "@/components/automation/VariableManager";
+import { WebhooksManager } from "@/components/automation/WebhooksManager";
+import { CreateWorkflowWizard } from "@/components/automation/CreateWorkflowWizard";
+
+// Mock schemas definitions
 interface Workflow {
-  id: number;
+  id: string | number;
   name: string;
   status: "Running" | "Paused" | "Failed" | "Scheduled" | "Draft";
   runsCount: number;
   successRate: string;
   lastRun: string;
   nextRun?: string;
+  category: string;
+  owner: string;
+  tags: string[];
 }
 
-interface Node {
-  id: string;
-  label: string;
-  type: "trigger" | "ai" | "condition" | "action";
-  status: "idle" | "running" | "success" | "failed";
-  details: string;
+interface Execution {
+  id: number;
+  workflowName: string;
+  status: "Success" | "Failed" | "Running";
+  started: string;
+  finished: string;
+  duration: string;
+  triggeredBy: string;
+}
+
+interface Variable {
+  id: string | number;
+  key: string;
+  type: "String" | "Number" | "Boolean" | "JSON" | "Secret";
+  scope: "Workflow" | "Project" | "Employee" | "System" | "AI";
+  defaultValue: string;
+  required: boolean;
+}
+
+interface Webhook {
+  id: string | number;
+  url: string;
+  method: "POST" | "GET" | "PUT";
+  status: "Active" | "Inactive";
+  workflowName: string;
+  created: string;
+}
+
+interface Schedule {
+  id: string | number;
+  workflowName: string;
+  cron: string;
+  timezone: string;
+  status: "Active" | "Paused";
+  nextRun: string;
+  lastRun: string;
+  successRate: string;
 }
 
 export default function AutomationsPage() {
-  // Mock workflow lists
-  const [workflows, setWorkflows] = useState<Workflow[]>([
-    { id: 1, name: "GitHub Pull Request Vector Ingest", status: "Running", runsCount: 420, successRate: "99.2%", lastRun: "10 min ago" },
-    { id: 2, name: "Customer Email Sentiment Hub", status: "Running", runsCount: 1250, successRate: "98.8%", lastRun: "2 hours ago" },
-    { id: 3, name: "Daily Marketing SVG Compiler", status: "Scheduled", runsCount: 84, successRate: "100%", lastRun: "Yesterday", nextRun: "Midnight" },
-    { id: 4, name: "CRM Database Synchronizer", status: "Paused", runsCount: 520, successRate: "97.5%", lastRun: "2 days ago" },
-  ]);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const activeTab = searchParams.get("tab") || "dashboard";
 
-  const [activeWorkflowId, setActiveWorkflowId] = useState<number>(1);
-  const [zoom, setZoom] = useState(100);
-  const [isDebugging, setIsDebugging] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  // Modal Stepper Wizard state
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
-  // Workflow Builder Canvas Nodes state
-  const [nodes, setNodes] = useState<Node[]>([
-    { id: "node-1", label: "Webhook Trigger", type: "trigger", status: "idle", details: "POST /v1/incoming-lead" },
-    { id: "node-2", label: "AI Parser Node", type: "ai", status: "idle", details: "Model: Claude 3.5 Sonnet" },
-    { id: "node-3", label: "Condition Filter", type: "condition", status: "idle", details: "If score > 0.8" },
-    { id: "node-4", label: "Slack Notification", type: "action", status: "idle", details: "Channel: #marketing-alerts" }
-  ]);
+  // Core visual state database
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | number>("");
+  const [executions, setExecutions] = useState<Execution[]>([]);
+  const [variables, setVariables] = useState<Variable[]>([]);
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+
+  // Helper status maps
+  const mapStatusFromBackend = (status: string): Workflow["status"] => {
+    if (status === "active") return "Running";
+    if (status === "paused") return "Paused";
+    if (status === "draft") return "Draft";
+    return "Running";
+  };
+
+  // API Ingestors
+  const fetchWorkflows = useCallback(() => {
+    apiClient.workflows.list()
+      .then((res) => {
+        if (res.data) {
+          const list = res.data.map((w: any) => ({
+            id: w.id,
+            name: w.name,
+            status: mapStatusFromBackend(w.status),
+            runsCount: w.runs_count || 0,
+            successRate: w.success_rate || "100%",
+            lastRun: w.updated_at ? new Date(w.updated_at).toLocaleDateString() : "Recently",
+            nextRun: w.status === "active" ? "Scheduled" : "--",
+            category: w.category || "General",
+            owner: w.owner_details?.full_name || w.owner || "Team Member",
+            tags: w.tags_details?.map((t: any) => t.name) || []
+          }));
+          setWorkflows(list);
+          if (!activeWorkflowId && list.length > 0) {
+            setActiveWorkflowId(list[0].id);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load workflows from API:", err);
+        setWorkflows([]);
+      });
+  }, [activeWorkflowId]);
+
+  const fetchExecutions = useCallback(() => {
+    apiClient.executions.list()
+      .then((res) => {
+        if (res.data) {
+          setExecutions(res.data.map((e: any) => ({
+            id: e.id,
+            workflowName: e.workflow_name || "Automation Run",
+            status: e.status === "success" ? "Success" : e.status === "failed" ? "Failed" : "Running",
+            started: e.created_at ? new Date(e.created_at).toLocaleTimeString() : "Just now",
+            finished: e.completed_at ? new Date(e.completed_at).toLocaleTimeString() : "--",
+            duration: e.duration_ms ? `${e.duration_ms}ms` : "640ms",
+            triggeredBy: e.trigger_node_name || "Webhook/API"
+          })));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load executions:", err);
+        setExecutions([]);
+      });
+  }, []);
+
+  const fetchVariables = useCallback(() => {
+    apiClient.variables.list()
+      .then((res) => {
+        if (res.data) {
+          setVariables(res.data.map((v: any) => ({
+            id: v.id,
+            key: v.name,
+            type: v.value_type || "String",
+            scope: v.scope || "Workflow",
+            defaultValue: v.value,
+            required: v.is_required || false
+          })));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load variables:", err);
+        setVariables([]);
+      });
+  }, []);
+
+  const fetchWebhooks = useCallback(() => {
+    apiClient.webhooks.list()
+      .then((res) => {
+        if (res.data) {
+          setWebhooks(res.data.map((w: any) => ({
+            id: w.id,
+            url: w.url || `/api/v1/webhooks/incoming/${w.webhook_token}/`,
+            method: "POST",
+            status: w.is_active ? "Active" : "Inactive",
+            workflowName: w.workflow_name || "Flow Webhook",
+            created: w.created_at ? new Date(w.created_at).toLocaleDateString() : "Just now"
+          })));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load webhooks:", err);
+        setWebhooks([]);
+      });
+  }, []);
+
+  const fetchSchedules = useCallback(() => {
+    apiClient.scheduler.list()
+      .then((res) => {
+        if (res.data) {
+          setSchedules(res.data.map((s: any) => ({
+            id: s.id,
+            workflowName: s.workflow_name || "Cron Scheduler",
+            cron: s.cron_expression || "Daily",
+            timezone: "UTC",
+            status: s.is_active ? "Active" : "Paused",
+            nextRun: s.next_run_at ? new Date(s.next_run_at).toLocaleTimeString() : "--",
+            lastRun: s.last_run_at ? new Date(s.last_run_at).toLocaleTimeString() : "Never",
+            successRate: "100%"
+          })));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load schedules:", err);
+        setSchedules([]);
+      });
+  }, []);
+
+  const fetchTemplates = useCallback(() => {
+    apiClient.templates.list()
+      .then((res) => {
+        if (res.data) {
+          setTemplates(res.data.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description || "",
+            category_name: t.category_name || "General",
+            downloads_count: t.downloads_count || 0,
+            rating_score: t.rating_score || 5.0
+          })));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load templates:", err);
+        setTemplates([]);
+      });
+  }, []);
+
+  // Ingest lifecycle
+  useEffect(() => {
+    fetchWorkflows();
+    fetchExecutions();
+    fetchVariables();
+    fetchWebhooks();
+    fetchSchedules();
+    fetchTemplates();
+  }, [fetchWorkflows, fetchExecutions, fetchVariables, fetchWebhooks, fetchSchedules, fetchTemplates]);
+
+  // Tab change handler
+  const handleTabChange = (tab: string) => {
+    router.push(`/automations?tab=${tab}`);
+  };
+
+  // Actions modifiers
+  const handleCreateWorkflow = (wizardData: any) => {
+    apiClient.workflows.create({
+      name: wizardData.name,
+      description: wizardData.description || "",
+      category: wizardData.category || "General",
+      folder: wizardData.folder || "Root",
+      status: "draft"
+    })
+    .then((res) => {
+      const w = res.data;
+      const newWf: Workflow = {
+        id: w.id,
+        name: w.name,
+        status: "Draft",
+        runsCount: 0,
+        successRate: "100%",
+        lastRun: "Never",
+        category: w.category || "General",
+        owner: w.owner || "Santhosh",
+        tags: wizardData.tags || []
+      };
+
+      setWorkflows(prev => [newWf, ...prev]);
+      setActiveWorkflowId(newWf.id);
+
+      // Create Webhook trigger if chosen
+      if (wizardData.triggerType === "Webhook") {
+        apiClient.webhooks.create({
+          workflow: w.id,
+          is_active: true
+        }).then(() => fetchWebhooks());
+      }
+
+      // Create Schedule trigger if chosen
+      if (wizardData.triggerType === "Schedule") {
+        apiClient.scheduler.create({
+          workflow: w.id,
+          schedule_type: "daily",
+          cron_expression: "0 9 * * *",
+          is_active: true
+        }).then(() => fetchSchedules());
+      }
+
+      handleTabChange("builder");
+    })
+    .catch((err) => {
+      console.error("Failed to create workflow in backend:", err);
+      alert("Failed to create workflow: " + (err.message || err));
+    });
+  };
+
+  const handleDuplicate = (id: string | number) => {
+    apiClient.workflows.duplicate(id)
+      .then(() => {
+        fetchWorkflows();
+      })
+      .catch((err) => {
+        console.error("Failed to duplicate workflow in backend:", err);
+      });
+  };
+
+  const handleToggleWorkflowStatus = (id: string | number) => {
+    apiClient.workflows.pause(id)
+      .then(() => {
+        fetchWorkflows();
+      })
+      .catch((err) => {
+        console.error("Failed to pause/resume workflow in backend:", err);
+      });
+  };
+
+  const handleDeleteWorkflow = (id: string | number) => {
+    apiClient.workflows.delete(id)
+      .then(() => {
+        fetchWorkflows();
+      })
+      .catch((err) => {
+        console.error("Failed to delete workflow in backend:", err);
+      });
+  };
+
+  // Template import handler
+  const handleImportTemplate = (id: string | number) => {
+    apiClient.templates.use(id)
+      .then((res) => {
+        fetchWorkflows();
+        setActiveWorkflowId(res.data.id);
+        handleTabChange("builder");
+      })
+      .catch((err) => {
+        console.error("Failed to import template:", err);
+        alert("Failed to import template: " + (err.message || err));
+      });
+  };
+
+  // Execution Handlers
+  const handleRetryExecution = (id: number) => {
+    apiClient.executions.retry(id)
+      .then(() => {
+        fetchExecutions();
+      })
+      .catch((err) => {
+        console.error("Failed to retry execution in backend:", err);
+      });
+  };
+
+  const handleCancelExecution = (id: number) => {
+    setExecutions(prev => prev.map(e => e.id === id ? { ...e, status: "Failed" } : e));
+  };
+
+  // Schedule status modifiers
+  const handleToggleSchedule = (id: string | number) => {
+    const s = schedules.find(sched => sched.id === id);
+    if (!s) return;
+
+    apiClient.scheduler.update(id, {
+      is_active: s.status !== "Active"
+    })
+    .then(() => {
+      fetchSchedules();
+    })
+    .catch((err) => {
+      console.error("Failed to update scheduler in backend:", err);
+    });
+  };
+
+  const handleTriggerSchedule = (id: string | number) => {
+    const job = schedules.find(s => s.id === id);
+    if (job) {
+      setExecutions(prev => [
+        {
+          id: Date.now() % 10000,
+          workflowName: job.workflowName,
+          status: "Success",
+          started: "Just now",
+          finished: "Just now",
+          duration: "140ms",
+          triggeredBy: "Scheduler rule"
+        },
+        ...prev
+      ]);
+    }
+  };
+
+  const handleDeleteSchedule = (id: string | number) => {
+    apiClient.scheduler.delete(id)
+      .then(() => {
+        fetchSchedules();
+      })
+      .catch((err) => {
+        console.error("Failed to delete schedule in backend:", err);
+      });
+  };
+
+  // Variable modifiers
+  const handleAddVariable = (variable: Omit<Variable, "id">) => {
+    apiClient.variables.create({
+      name: variable.key,
+      value_type: variable.type,
+      value: variable.defaultValue,
+      scope: variable.scope,
+      is_required: variable.required
+    })
+    .then(() => {
+      fetchVariables();
+    })
+    .catch((err) => {
+      console.error("Failed to create variable in backend:", err);
+      alert("Failed to create variable: " + (err.message || err));
+    });
+  };
+
+  const handleDeleteVariable = (id: string | number) => {
+    apiClient.variables.delete(id)
+      .then(() => {
+        fetchVariables();
+      })
+      .catch((err) => {
+        console.error("Failed to delete variable in backend:", err);
+      });
+  };
+
+  // Webhook modifiers
+  const handleToggleWebhook = (id: string | number) => {
+    const w = webhooks.find(hook => hook.id === id);
+    if (!w) return;
+
+    apiClient.webhooks.update(id, {
+      is_active: w.status !== "Active"
+    })
+    .then(() => {
+      fetchWebhooks();
+    })
+    .catch((err) => {
+      console.error("Failed to update webhook in backend:", err);
+    });
+  };
+
+  const handleDeleteWebhook = (id: string | number) => {
+    apiClient.webhooks.delete(id)
+      .then(() => {
+        fetchWebhooks();
+      })
+      .catch((err) => {
+        console.error("Failed to delete webhook in backend:", err);
+      });
+  };
 
   const activeWorkflow = workflows.find((w) => w.id === activeWorkflowId) || workflows[0];
 
-  // Run simulation debug animation
-  const runWorkflowDebugger = () => {
-    if (isDebugging) return;
-    setIsDebugging(true);
-    setDebugLogs(["Initializing workflow execution loop...", `Active template: ${activeWorkflow.name}`]);
-
-    // Reset nodes state to idle first
-    setNodes(prev => prev.map(n => ({ ...n, status: "idle" })));
-
-    // Sequential trigger run simulation
-    let currentStep = 0;
-    const runStep = () => {
-      if (currentStep < nodes.length) {
-        const activeNode = nodes[currentStep];
-        setNodes(prev => prev.map((n, idx) => idx === currentStep ? { ...n, status: "running" } : n));
-        setDebugLogs(prev => [...prev, `[PROCESS] Processing Node: ${activeNode.label} (${activeNode.details})`]);
-
-        setTimeout(() => {
-          setNodes(prev => prev.map((n, idx) => idx === currentStep ? { ...n, status: "success" } : n));
-          setDebugLogs(prev => [...prev, `[SUCCESS] Node completed: ${activeNode.label}`]);
-          currentStep++;
-          runStep();
-        }, 800);
-      } else {
-        setIsDebugging(false);
-        setDebugLogs(prev => [...prev, "[COMPLETE] Workflow run execution logs generated. All nodes reports: 200 OK."]);
-      }
-    };
-
-    setTimeout(runStep, 400);
-  };
-
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 md:gap-8 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border-color/60 pb-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">Automation Engine</h1>
-          <p className="text-xs text-[#8D96A7] mt-1">Design visual flowcharts linking integrations, triggers, and AI reasoning blocks.</p>
-        </div>
-        <button
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/10 self-start md:self-auto transition-all"
+    <div className="max-w-[1920px] mx-auto w-full px-2">
+      {/* Animated transitions */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.15 }}
+          className="w-full"
         >
-          <Plus className="h-4.5 w-4.5" />
-          <span>New Workflow</span>
-        </button>
-      </div>
+          {activeTab === "dashboard" && (
+            <AutomationDashboard 
+              workflows={workflows} 
+              executions={executions} 
+              templatesCount={templates.length}
+              onTabChange={handleTabChange} 
+              onOpenWizard={() => setIsWizardOpen(true)}
+            />
+          )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        {/* Left Side: Workflows List */}
-        <div className="bg-card-bg border border-border-color rounded-card p-5 shadow-card flex flex-col gap-4 max-h-[600px] overflow-y-auto scrollbar-thin">
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Active Workflows</h3>
-          <div className="flex flex-col gap-2">
-            {workflows.map((wf) => {
-              const isActive = wf.id === activeWorkflowId;
-              return (
-                <div
-                  key={wf.id}
-                  onClick={() => {
-                    setActiveWorkflowId(wf.id);
-                    setNodes(prev => prev.map(n => ({ ...n, status: "idle" })));
-                    setDebugLogs([]);
-                  }}
-                  className={cn(
-                    "p-3.5 rounded-xl border cursor-pointer transition-all duration-150 flex flex-col gap-2",
-                    isActive 
-                      ? "border-primary bg-primary/5 text-primary" 
-                      : "border-border-color/50 bg-[#16181D]/30 hover:bg-[#16181D]/50"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={cn("text-xs font-bold", isActive ? "text-primary" : "text-white")}>
-                      {wf.name}
-                    </span>
-                    <span className={cn(
-                      "text-[8px] uppercase font-extrabold px-1.5 py-0.5 rounded border",
-                      wf.status === "Running" && "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20",
-                      wf.status === "Failed" && "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20",
-                      wf.status === "Paused" && "bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/20",
-                      wf.status === "Scheduled" && "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20"
-                    )}>
-                      {wf.status}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-[9px] text-[#8D96A7] mt-1">
-                    <span>Runs: {wf.runsCount}</span>
-                    <span>Success: {wf.successRate}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          {activeTab === "workflows" && (
+            <WorkflowList 
+              workflows={workflows} 
+              onSelectWorkflow={(id) => {
+                setActiveWorkflowId(id);
+                handleTabChange("builder");
+              }}
+              onDuplicate={handleDuplicate}
+              onToggleStatus={handleToggleWorkflowStatus}
+              onDelete={handleDeleteWorkflow}
+              onOpenWizard={() => setIsWizardOpen(true)}
+            />
+          )}
 
-        {/* Right Side: Visual Canvas & Toolbar */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          {/* Toolbar panel */}
-          <div className="p-3 bg-card-bg border border-border-color rounded-card flex items-center justify-between flex-wrap gap-2 text-xs">
-            <div className="flex items-center gap-1.5">
-              <button 
-                onClick={runWorkflowDebugger}
-                disabled={isDebugging}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#22C55E] text-white hover:opacity-95 disabled:opacity-50 transition-all shadow-md shadow-[#22C55E]/10"
-              >
-                <Play className="h-3.5 w-3.5 fill-current" />
-                <span>Test run</span>
-              </button>
-              <button className="p-2 rounded-lg border border-border-color hover:bg-hover-bg text-[#8D96A7] hover:text-white" title="Copy Nodes">
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
+          {activeTab === "builder" && (
+            <WorkflowBuilder 
+              workflowId={activeWorkflow?.id || ""}
+              workflowName={activeWorkflow?.name || "New Workflow Pipeline"}
+              onSave={(newName) => {
+                setWorkflows(prev => prev.map(w => w.id === activeWorkflowId ? { ...w, name: newName } : w));
+              }}
+            />
+          )}
 
-            <div className="flex items-center gap-2">
-              <button onClick={() => setZoom(z => Math.max(z - 10, 50))} className="p-1.5 rounded hover:bg-hover-bg text-[#8D96A7]">
-                <ZoomOut className="h-4 w-4" />
-              </button>
-              <span className="text-[10px] font-mono text-[#8D96A7] w-8 text-center">{zoom}%</span>
-              <button onClick={() => setZoom(z => Math.min(z + 10, 150))} className="p-1.5 rounded hover:bg-hover-bg text-[#8D96A7]">
-                <ZoomIn className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+          {activeTab === "templates" && (
+            <TemplatesGallery 
+              templates={templates} 
+              onImportTemplate={handleImportTemplate} 
+            />
+          )}
 
-          {/* Visual Canvas Simulator */}
-          <div className="h-96 border border-border-color bg-card-bg rounded-card relative overflow-hidden flex items-center justify-center p-4">
-            {/* Grid pattern background */}
-            <div className="absolute inset-0 bg-workspace-grid opacity-[0.25] pointer-events-none" />
-            
-            {/* Connected nodes layout */}
-            <div 
-              style={{ transform: `scale(${zoom / 100})` }}
-              className="flex flex-col sm:flex-row items-center gap-6 relative z-10 transition-transform duration-200"
-            >
-              {nodes.map((node, idx) => (
-                <React.Fragment key={node.id}>
-                  {/* Node Card */}
-                  <div className={cn(
-                    "p-4 rounded-xl border w-40 bg-[#16181D] shadow-lg flex flex-col gap-2 transition-all duration-300 relative",
-                    node.status === "idle" && "border-border-color",
-                    node.status === "running" && "border-primary ring-1 ring-primary/40 shadow-primary/10",
-                    node.status === "success" && "border-[#22C55E] ring-1 ring-[#22C55E]/40 shadow-[#22C55E]/10"
-                  )}>
-                    <div className="flex items-center justify-between border-b border-border-color/60 pb-1.5">
-                      <span className={cn(
-                        "text-[9px] uppercase font-bold px-1.5 py-0.5 rounded",
-                        node.type === "trigger" && "bg-primary/10 text-primary border border-primary/20",
-                        node.type === "ai" && "bg-secondary/10 text-secondary border border-secondary/20",
-                        node.type === "condition" && "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20",
-                        node.type === "action" && "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
-                      )}>
-                        {node.type}
-                      </span>
-                      {node.status === "running" && (
-                        <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                      )}
-                    </div>
-                    <span className="text-[11px] font-bold text-white">{node.label}</span>
-                    <span className="text-[9px] text-[#8D96A7] truncate font-mono">{node.details}</span>
-                  </div>
+          {activeTab === "executions" && (
+            <ExecutionCenter 
+              executions={executions} 
+              onRetry={handleRetryExecution}
+              onCancel={handleCancelExecution}
+            />
+          )}
 
-                  {/* Connecting line */}
-                  {idx < nodes.length - 1 && (
-                    <div className="hidden sm:flex items-center text-[#8D96A7]">
-                      <ArrowRight className="h-4 w-4 animate-pulse text-primary" />
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
+          {activeTab === "scheduler" && (
+            <CronScheduler 
+              schedules={schedules} 
+              onToggleStatus={handleToggleSchedule}
+              onTriggerImmediate={handleTriggerSchedule}
+              onDeleteSchedule={handleDeleteSchedule}
+            />
+          )}
 
-          {/* Debug logs panel */}
-          <div className="p-4 bg-black border border-border-color rounded-card font-mono text-[10px] h-32 overflow-y-auto flex flex-col gap-1.5 scrollbar-thin text-[#B7BDC8]">
-            <div className="flex items-center justify-between border-b border-border-color/60 pb-1.5 mb-1 text-[#8D96A7] flex-shrink-0">
-              <span className="font-bold uppercase tracking-wider">Debugger Execution Console logs.sh</span>
-              {isDebugging && <span className="animate-pulse text-primary">RUNNING...</span>}
-            </div>
-            {debugLogs.length > 0 ? (
-              debugLogs.map((log, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <span className="text-[#8D96A7]">&gt;</span>
-                  <span>{log}</span>
-                </div>
-              ))
-            ) : (
-              <span className="text-[#8D96A7] italic">No logs generated. Click 'Test run' above to start testing nodes.</span>
-            )}
-          </div>
-        </div>
-      </div>
+          {activeTab === "variables" && (
+            <VariableManager 
+              variables={variables} 
+              onAddVariable={handleAddVariable}
+              onDeleteVariable={handleDeleteVariable}
+            />
+          )}
+
+          {activeTab === "webhooks" && (
+            <WebhooksManager 
+              webhooks={webhooks} 
+              onToggleWebhook={handleToggleWebhook}
+              onDeleteWebhook={handleDeleteWebhook}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Workflow wizard modal */}
+      <CreateWorkflowWizard 
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onCreateWorkflow={handleCreateWorkflow}
+      />
     </div>
   );
 }

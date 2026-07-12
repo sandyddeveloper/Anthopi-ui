@@ -47,20 +47,21 @@ export default function AIUsagePage() {
       let sumTokens = 0;
       let sumCost = 0.0;
       
-      const mapped = (res.data || []).map((u: any) => {
+      const rawData = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      const mapped = rawData.map((u: any) => {
         sumTokens += (u.total_tokens || 0);
         sumCost += parseFloat(u.cost || 0.0);
 
         return {
           id: u.id,
-          user: u.user_details?.full_name || "Santhosh",
-          agentName: u.agent_details?.name || "Developer AI",
-          model: u.model_details?.name || "gpt-4o",
+          user: u.user_details?.full_name || u.user || "Unassigned",
+          agentName: u.agent_details?.name || "System Core",
+          model: u.model_details?.name || u.model || "Base Model",
           inputTokens: u.input_tokens || 0,
           outputTokens: u.output_tokens || 0,
           totalTokens: u.total_tokens || 0,
           cost: `$${parseFloat(u.cost || 0.0).toFixed(4)}`,
-          time: new Date(u.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          time: u.created_at ? new Date(u.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now"
         };
       });
 
@@ -71,9 +72,17 @@ export default function AIUsagePage() {
       
       if (mapped.length > 0) {
         setAvgCost(`$${(sumCost / mapped.length).toFixed(4)}`);
+      } else {
+        setAvgCost("$0.00");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to fetch running usage analytics logs:", e);
+      alert(`Failed to fetch usage metrics: ${e.message || e}`);
+      setLogs([]);
+      setTotalTokens(0);
+      setTotalQueries(0);
+      setTotalCost("$0.00");
+      setAvgCost("$0.00");
     } finally {
       setLoading(false);
     }
@@ -89,6 +98,9 @@ export default function AIUsagePage() {
     const matchesAgent = filterAgent === "All" || log.agentName === filterAgent;
     return matchesSearch && matchesAgent;
   });
+
+  // Get unique agent names for filter
+  const agentNames = Array.from(new Set(logs.map(log => log.agentName)));
 
   return (
     <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 md:gap-8 animate-fadeIn text-left">
@@ -106,10 +118,10 @@ export default function AIUsagePage() {
       {/* Stats row cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: "Total Query Volume", value: String(totalQueries || 0), icon: <Activity className="h-5 w-5 text-purple-400" /> },
-          { label: "Token Consumption", value: totalTokens > 0 ? `${(totalTokens / 1000).toFixed(0)}k` : "14.2k", icon: <Cpu className="h-5 w-5 text-amber-400" /> },
-          { label: "Avg Query Cost", value: avgCost !== "$0.00" ? avgCost : "$0.012", icon: <DollarSign className="h-5 w-5 text-emerald-400" /> },
-          { label: "Total Burn Billing", value: totalCost !== "$0.00" ? totalCost : "$2.84", icon: <DollarSign className="h-5 w-5 text-cyan-400" /> }
+          { label: "Total Query Volume", value: String(totalQueries), icon: <Activity className="h-5 w-5 text-purple-400" /> },
+          { label: "Token Consumption", value: totalTokens > 0 ? `${(totalTokens / 1000).toFixed(0)}k` : "0", icon: <Cpu className="h-5 w-5 text-amber-400" /> },
+          { label: "Avg Query Cost", value: avgCost, icon: <DollarSign className="h-5 w-5 text-emerald-400" /> },
+          { label: "Total Burn Billing", value: totalCost, icon: <DollarSign className="h-5 w-5 text-cyan-400" /> }
         ].map((card, i) => (
           <div key={i} className="bg-card-bg border border-border-color rounded-2xl p-5 hover:border-[#2C313C]/80 transition-all flex items-center justify-between">
             <div className="flex flex-col gap-1 text-left">
@@ -130,18 +142,34 @@ export default function AIUsagePage() {
           <p className="text-[11px] text-[#8D96A7] mt-0.5">Vector queries counts traced hourly.</p>
         </div>
 
-        <div className="h-52 bg-[#14151b] border border-border-color/30 rounded-xl p-4 relative flex items-end">
-          <svg className="absolute inset-0 h-full w-full p-2" viewBox="0 0 100 100" preserveAspectRatio="none">
-            <path d="M 0,90 C 20,40 40,65 60,35 T 100,10 L 100,100 L 0,100 Z" fill="url(#areaGrad)" />
-            <path d="M 0,90 C 20,40 40,65 60,35 T 100,10" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" />
-          </svg>
-          <div className="absolute inset-x-0 bottom-1 flex justify-between px-3 text-[9px] text-[#5A6376] font-mono">
-            <span>09:00</span>
-            <span>12:00</span>
-            <span>15:00</span>
-            <span>18:00</span>
-            <span>Now</span>
-          </div>
+        <div className="h-52 bg-[#14151b] border border-border-color/30 rounded-xl p-4 relative flex items-end overflow-hidden">
+          {logs.length > 0 ? (
+            <>
+              <svg className="absolute inset-0 h-full w-full p-2" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d="M 0,90 C 20,40 40,65 60,35 T 100,10 L 100,100 L 0,100 Z" fill="url(#areaGrad)" />
+                <path d="M 0,90 C 20,40 40,65 60,35 T 100,10" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" />
+              </svg>
+              <div className="absolute inset-x-0 bottom-1 flex justify-between px-3 text-[9px] text-[#5A6376] font-mono">
+                <span>09:00</span>
+                <span>12:00</span>
+                <span>15:00</span>
+                <span>18:00</span>
+                <span>Now</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center w-full h-full text-[#8D96A7] gap-2 px-6 text-center">
+              <Activity className="h-8 w-8 text-[#2C313C]" />
+              <h4 className="text-xs font-bold text-white">No query logs recorded</h4>
+              <p className="text-[10px]">Usage graphs will display here automatically once agents process calls.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -168,8 +196,9 @@ export default function AIUsagePage() {
               className="bg-[#16181D] border border-border-color text-xs text-white px-3 py-2 rounded-xl outline-none"
             >
               <option value="All">All Agents</option>
-              <option value="Developer AI">Developer AI</option>
-              <option value="Support AI">Support AI</option>
+              {agentNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -200,7 +229,7 @@ export default function AIUsagePage() {
 
               {!loading && filteredLogs.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-[#8D96A7] italic">No trace records matches query.</td>
+                  <td colSpan={9} className="p-8 text-center text-[#8D96A7] italic">No trace records found.</td>
                 </tr>
               )}
 

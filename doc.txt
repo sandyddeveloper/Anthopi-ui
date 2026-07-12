@@ -1,0 +1,9 @@
+👑 Super Admin (Full Platform Control & Telemetry)
+Email: indhu@pro.com
+Password: 16092003
+🏢 Company Admin (Workspace Governance & Setup)
+Email: admin@anthopi.com
+Password: adminpassword123
+👤 Standard User (Employee Node Hub)
+Email: user@anthopi.com
+Password: userpassword123

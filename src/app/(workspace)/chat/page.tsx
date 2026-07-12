@@ -156,17 +156,7 @@ export default function ChatPage() {
           };
         });
 
-        // Set default help message if thread is empty
-        if (list.length === 0) {
-          list.push({
-            id: "fallback-intro",
-            role: "assistant",
-            text: "Session initialized successfully. Start typing below to prompt context workspace models.",
-            timestamp: "Just now",
-            codeBlock: undefined
-          });
-        }
-
+        // Set default empty state helper
         setMessages(list);
       } catch (e) {
         console.error("Failed to load active thread messages:", e);
@@ -215,16 +205,7 @@ export default function ChatPage() {
       setMessages(list);
     } catch (e) {
       console.error("Failed to post message:", e);
-      // Place mock response fallback if local server backend loop has no AI key config
-      setTimeout(() => {
-        const fallbackAssistantMsg: ChatMessage = {
-          id: String(Date.now() + 1),
-          role: "assistant",
-          text: `Backend connection operational. Successfully processed query context for prompt. Please configure models provider keys to fetch live LLM generations.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages(prev => [...prev, fallbackAssistantMsg]);
-      }, 1000);
+      alert("Failed to send message: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setIsTyping(false);
       loadSessions(activeSessionId);

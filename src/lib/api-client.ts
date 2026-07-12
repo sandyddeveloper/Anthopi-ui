@@ -233,6 +233,10 @@ export const apiClient = {
       request<any[]>('/api/v1/auth/permissions/', {
         method: 'GET',
       }),
+    myPermissions: () =>
+      request<{ is_superuser: boolean; role_code: string | null; permissions: string[] }>('/api/v1/auth/my-permissions/', {
+        method: 'GET',
+      }),
     getRoles: () =>
       request<any[]>('/api/v1/auth/roles/', {
         method: 'GET',
@@ -544,6 +548,66 @@ export const apiClient = {
     deleteCollection: (id: string) => request(`/api/v1/knowledge/collections/${id}/`, { method: 'DELETE' }),
     assignAgent: (collectionId: string, body: any) => request(`/api/v1/knowledge/collections/${collectionId}/assign-agent/`, { method: 'POST', body: JSON.stringify(body) }),
     addFile: (collectionId: string, body: any) => request(`/api/v1/knowledge/collections/${collectionId}/add-file/`, { method: 'POST', body: JSON.stringify(body) }),
+  },
+
+  // 15. Workflows
+  workflows: {
+    list: () => request<any[]>('/api/v1/workflows/', { method: 'GET' }),
+    create: (body: any) => request('/api/v1/workflows/', { method: 'POST', body: JSON.stringify(body) }),
+    get: (id: string | number) => request(`/api/v1/workflows/${id}/`, { method: 'GET' }),
+    update: (id: string | number, body: any) => request(`/api/v1/workflows/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: string | number) => request(`/api/v1/workflows/${id}/`, { method: 'DELETE' }),
+    publish: (id: string | number) => request(`/api/v1/workflows/${id}/publish/`, { method: 'POST' }),
+    pause: (id: string | number) => request(`/api/v1/workflows/${id}/pause/`, { method: 'POST' }),
+    archive: (id: string | number) => request(`/api/v1/workflows/${id}/archive/`, { method: 'POST' }),
+    duplicate: (id: string | number) => request(`/api/v1/workflows/${id}/duplicate/`, { method: 'POST' }),
+    run: (id: string | number, body?: any) => request(`/api/v1/workflows/${id}/run/`, { method: 'POST', body: JSON.stringify(body || {}) }),
+  },
+
+  // 16. Workflow Builder
+  workflowBuilder: {
+    getDraft: (workflowId: string | number) => request<any>(`/api/v1/workflow-builder/?workflow_id=${workflowId}`, { method: 'GET' }),
+    saveDraft: (body: { workflow_id: string | number; nodes: any[]; connections: any[] }) =>
+      request('/api/v1/workflow-builder/', { method: 'POST', body: JSON.stringify(body) }),
+  },
+
+  // 17. Executions
+  executions: {
+    list: () => request<any[]>('/api/v1/executions/', { method: 'GET' }),
+    get: (id: string | number) => request(`/api/v1/executions/${id}/`, { method: 'GET' }),
+    logs: (id: string | number) => request<any[]>(`/api/v1/executions/${id}/logs/`, { method: 'GET' }),
+    retry: (id: string | number) => request(`/api/v1/executions/${id}/retry/`, { method: 'POST' }),
+  },
+
+  // 18. Variables
+  variables: {
+    list: () => request<any[]>('/api/v1/variables/', { method: 'GET' }),
+    create: (body: any) => request('/api/v1/variables/', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string | number, body: any) => request(`/api/v1/variables/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: string | number) => request(`/api/v1/variables/${id}/`, { method: 'DELETE' }),
+  },
+
+  // 19. Templates
+  templates: {
+    list: () => request<any[]>('/api/v1/templates/', { method: 'GET' }),
+    use: (id: string | number) => request(`/api/v1/templates/${id}/use/`, { method: 'POST' }),
+  },
+
+  // 20. Webhooks
+  webhooks: {
+    list: () => request<any[]>('/api/v1/webhooks/', { method: 'GET' }),
+    create: (body: any) => request('/api/v1/webhooks/', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string | number, body: any) => request(`/api/v1/webhooks/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: string | number) => request(`/api/v1/webhooks/${id}/`, { method: 'DELETE' }),
+  },
+
+  // 21. Scheduler
+  scheduler: {
+    list: () => request<any[]>('/api/v1/schedules/', { method: 'GET' }),
+    create: (body: any) => request('/api/v1/schedules/', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string | number, body: any) => request(`/api/v1/schedules/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: string | number) => request(`/api/v1/schedules/${id}/`, { method: 'DELETE' }),
+    listExecutions: () => request<any[]>('/api/v1/schedule-executions/', { method: 'GET' }),
   },
 };
 

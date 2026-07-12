@@ -107,19 +107,19 @@ export default function AgentsPage() {
         role: a.category_details?.name || "Assistant",
         description: a.description || "No description provided.",
         category: a.category_details?.name || "General",
-        status: "Running" as const,
+        status: a.is_active ? ("Running" as const) : ("Paused" as const),
         tools: a.tools || [],
-        knowledgeBase: [], // mapped dynamically
+        knowledgeBase: a.knowledge_collections?.map((k: any) => k.name) || [],
         model: a.model_details?.name || "gpt-4o",
         provider: a.model_details?.provider_name || "OpenAI",
         temperature: a.temperature || 0.7,
-        maxTokens: 4096,
+        maxTokens: a.max_tokens || 4096,
         systemPrompt: a.system_prompt || "",
-        goal: "Automate task instructions context",
-        behavior: "Analytical, precise",
-        restrictions: "Never delete critical repository source files",
-        createdDate: new Date(a.created_at).toISOString().split("T")[0],
-        lastUpdated: "Just now"
+        goal: a.goal || "",
+        behavior: a.behavior || "",
+        restrictions: a.restrictions || "",
+        createdDate: a.created_at ? new Date(a.created_at).toISOString().split("T")[0] : "Just now",
+        lastUpdated: a.updated_at ? new Date(a.updated_at).toISOString().split("T")[0] : "Just now"
       }));
 
       setAgents(mappedAgents);

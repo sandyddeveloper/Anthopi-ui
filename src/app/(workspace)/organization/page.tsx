@@ -104,12 +104,19 @@ function OrganizationHubContent() {
       const desigsRes = await apiClient.orgs.getDesignations();
       setDesignations(desigsRes.data || []);
 
-      const auditRes = await apiClient.auditLogs.getAuditLogs();
-      const list = Array.isArray(auditRes.data) ? auditRes.data : (auditRes.data as any).results || [];
-      setAuditLogs(list);
+      try {
+        const auditRes = await apiClient.auditLogs.getAuditLogs();
+        const list = Array.isArray(auditRes.data) ? auditRes.data : (auditRes.data as any).results || [];
+        setAuditLogs(list);
+      } catch (auditErr: any) {
+        console.error("Failed to load audit logs specifically:", auditErr);
+        setAuditLogs([]);
+        alert(`Audit Log Error: ${auditErr.message || auditErr}`);
+      }
 
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to load organization datasets:", e);
+      alert(`Failed to load organization datasets: ${e.message || e}`);
     } finally {
       setIsLoading(false);
     }
@@ -187,6 +194,23 @@ function OrganizationHubContent() {
     a.user_email?.toLowerCase().includes(auditSearch.toLowerCase())
   );
 
+  const checkPermission = (permissionCode?: string) => {
+    if (typeof window === "undefined") return false;
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      if (user.is_superuser) return true;
+    }
+    const cached = localStorage.getItem("permissions");
+    if (cached) {
+      const perms = JSON.parse(cached);
+      if (perms.includes("*")) return true;
+      if (!permissionCode) return true;
+      return perms.includes(permissionCode);
+    }
+    return false;
+  };
+
   return (
     <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 md:gap-8 animate-fadeIn text-left">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border-color pb-5">
@@ -229,12 +253,12 @@ function OrganizationHubContent() {
       <div className="flex bg-[#16181D]/30 border border-border-color p-1 rounded-xl overflow-x-auto scrollbar-hide">
         {[
           { id: "overview", label: "Overview" },
-          { id: "members", label: "Members Registry" },
-          { id: "departments", label: "Departments" },
-          { id: "teams", label: "Teams" },
-          { id: "designations", label: "Designations" },
-          { id: "audit", label: "Security Ledger" },
-        ].map((tab) => (
+          { id: "members", label: "Members Registry", permission: "employee.view" },
+          { id: "departments", label: "Departments", permission: "department.view" },
+          { id: "teams", label: "Teams", permission: "team.view" },
+          { id: "designations", label: "Designations", permission: "designation.view" },
+          { id: "audit", label: "Security Ledger", permission: "audit.view" },
+        ].filter(tab => checkPermission(tab.permission)).map((tab) => (
           <button
             key={tab.id}
             onClick={() => {

@@ -47,6 +47,30 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isSuperuser, setIsSuperuser] = useState<boolean>(false);
+
+  // Load cached permissions and superuser status
+  useEffect(() => {
+    const cachedPerms = localStorage.getItem("permissions");
+    if (cachedPerms) {
+      try {
+        setPermissions(JSON.parse(cachedPerms));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const cachedUser = localStorage.getItem("user");
+    if (cachedUser) {
+      try {
+        const u = JSON.parse(cachedUser);
+        setUser(u);
+        setIsSuperuser(u.is_superuser === true);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
 
   // Authenticate and load profile
   useEffect(() => {
@@ -59,7 +83,9 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     const cachedUser = localStorage.getItem("user");
     if (cachedUser) {
       try {
-        setUser(JSON.parse(cachedUser));
+        const parsed = JSON.parse(cachedUser);
+        setUser(parsed);
+        setIsSuperuser(parsed.is_superuser === true);
       } catch (e) {
         console.error(e);
       }
@@ -68,10 +94,21 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     apiClient.users.getProfile()
       .then((res) => {
         setUser(res.data);
+        setIsSuperuser(res.data.is_superuser === true);
         localStorage.setItem("user", JSON.stringify(res.data));
       })
       .catch((err) => {
         console.error("Failed to fetch fresh user profile:", err);
+      });
+
+    apiClient.auth.myPermissions()
+      .then((res) => {
+        setPermissions(res.data.permissions || []);
+        setIsSuperuser(res.data.is_superuser || false);
+        localStorage.setItem("permissions", JSON.stringify(res.data.permissions || []));
+      })
+      .catch((err) => {
+        console.error("Failed to fetch permissions:", err);
       });
   }, [router]);
 
@@ -81,7 +118,17 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
       const cached = localStorage.getItem("user");
       if (cached) {
         try {
-          setUser(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          setUser(parsed);
+          setIsSuperuser(parsed.is_superuser === true);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      const cachedPerms = localStorage.getItem("permissions");
+      if (cachedPerms) {
+        try {
+          setPermissions(JSON.parse(cachedPerms));
         } catch (e) {
           console.error(e);
         }
@@ -149,6 +196,12 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     return searchParams.get(key) === val;
   };
 
+  const hasPermission = (permissionCode?: string) => {
+    if (isSuperuser || permissions.includes("*")) return true;
+    if (!permissionCode) return true;
+    return permissions.includes(permissionCode);
+  };
+
   const SIDEBAR_SECTIONS = [
     {
       items: [
@@ -158,38 +211,51 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     {
       title: "Employee Management",
       items: [
-        { label: "Employees", href: "/team", icon: <Users className="h-4.5 w-4.5" /> },
-        { label: "Departments", href: "/organization?tab=departments", icon: <Layers className="h-4.5 w-4.5" />, indented: true },
-        { label: "Teams", href: "/organization?tab=teams", icon: <Server className="h-4.5 w-4.5" />, indented: true },
-        { label: "Designations", href: "/organization?tab=designations", icon: <Sliders className="h-4.5 w-4.5" />, indented: true }
+        { label: "Employees", href: "/team", icon: <Users className="h-4.5 w-4.5" />, permission: "employee.view" },
+        { label: "Departments", href: "/organization?tab=departments", icon: <Layers className="h-4.5 w-4.5" />, indented: true, permission: "department.view" },
+        { label: "Teams", href: "/organization?tab=teams", icon: <Server className="h-4.5 w-4.5" />, indented: true, permission: "team.view" },
+        { label: "Designations", href: "/organization?tab=designations", icon: <Sliders className="h-4.5 w-4.5" />, indented: true, permission: "designation.view" }
       ]
     },
     {
       title: "Project Management",
       items: [
-        { label: "Projects", href: "/projects", icon: <Folder className="h-4.5 w-4.5" /> },
-        { label: "Project Members", href: "/projects?tab=members", icon: <Users className="h-4.5 w-4.5" />, indented: true }
+        { label: "Projects", href: "/projects", icon: <Folder className="h-4.5 w-4.5" />, permission: "project.view" },
+        { label: "Project Members", href: "/projects?tab=members", icon: <Users className="h-4.5 w-4.5" />, indented: true, permission: "project.members.view" }
       ]
     },
     {
       title: "AI Workspace",
       items: [
-        { label: "AI Dashboard", href: "/ai-dashboard", icon: <Sparkles className="h-4.5 w-4.5" /> },
-        { label: "AI Agents", href: "/agents", icon: <Bot className="h-4.5 w-4.5" /> },
-        { label: "AI Chat", href: "/chat", icon: <MessageSquare className="h-4.5 w-4.5" /> },
-        { label: "Conversations", href: "/conversations", icon: <Terminal className="h-4.5 w-4.5" /> },
-        { label: "Knowledge", href: "/knowledge", icon: <BookOpen className="h-4.5 w-4.5" /> },
-        { label: "Prompts", href: "/prompts", icon: <Zap className="h-4.5 w-4.5" /> },
-        { label: "AI Tools", href: "/ai-tools", icon: <Wrench className="h-4.5 w-4.5" /> },
-        { label: "Models", href: "/models", icon: <Cpu className="h-4.5 w-4.5" /> },
-        { label: "AI Usage", href: "/ai-usage", icon: <BarChart3 className="h-4.5 w-4.5" /> }
+        { label: "AI Dashboard", href: "/ai-dashboard", icon: <Sparkles className="h-4.5 w-4.5" />, permission: "ai.dashboard.view" },
+        { label: "AI Agents", href: "/agents", icon: <Bot className="h-4.5 w-4.5" />, permission: "agent.view" },
+        { label: "AI Chat", href: "/chat", icon: <MessageSquare className="h-4.5 w-4.5" />, permission: "chat.view" },
+        { label: "Conversations", href: "/conversations", icon: <Terminal className="h-4.5 w-4.5" />, permission: "conversation.view" },
+        { label: "Knowledge", href: "/knowledge", icon: <BookOpen className="h-4.5 w-4.5" />, permission: "knowledge.view" },
+        { label: "Prompts", href: "/prompts", icon: <Zap className="h-4.5 w-4.5" />, permission: "prompt.view" },
+        { label: "AI Tools", href: "/ai-tools", icon: <Wrench className="h-4.5 w-4.5" />, permission: "tool.view" },
+        { label: "Models", href: "/models", icon: <Cpu className="h-4.5 w-4.5" />, permission: "model.view" },
+        { label: "AI Usage", href: "/ai-usage", icon: <BarChart3 className="h-4.5 w-4.5" />, permission: "usage.view" }
+      ]
+    },
+    {
+      title: "Automation",
+      items: [
+        { label: "Dashboard", href: "/automations?tab=dashboard", icon: <Zap className="h-4.5 w-4.5 text-amber-500" />, permission: "automation.dashboard.view" },
+        { label: "Workflows", href: "/automations?tab=workflows", icon: <Layers className="h-4.5 w-4.5" />, permission: "workflow.view" },
+        { label: "Builder", href: "/automations?tab=builder", icon: <Sliders className="h-4.5 w-4.5" />, permission: "workflow.manage" },
+        { label: "Templates", href: "/automations?tab=templates", icon: <BookOpen className="h-4.5 w-4.5" />, permission: "workflow.template.view" },
+        { label: "Executions", href: "/automations?tab=executions", icon: <Activity className="h-4.5 w-4.5" />, permission: "workflow.execution.view" },
+        { label: "Scheduler", href: "/automations?tab=scheduler", icon: <Calendar className="h-4.5 w-4.5" />, permission: "scheduler.view" },
+        { label: "Variables", href: "/automations?tab=variables", icon: <Wrench className="h-4.5 w-4.5" />, permission: "variable.view" },
+        { label: "Webhooks", href: "/automations?tab=webhooks", icon: <Link2 className="h-4.5 w-4.5" />, permission: "webhook.view" }
       ]
     },
     {
       title: "File Management",
       items: [
-        { label: "Files", href: "/files", icon: <FolderClosed className="h-4.5 w-4.5" /> },
-        { label: "Shared Files", href: "/files?tab=shared", icon: <Link2 className="h-4.5 w-4.5" />, indented: true }
+        { label: "Files", href: "/files", icon: <FolderClosed className="h-4.5 w-4.5" />, permission: "file.view" },
+        { label: "Shared Files", href: "/files?tab=shared", icon: <Link2 className="h-4.5 w-4.5" />, indented: true, permission: "file.shared.view" }
       ]
     },
     {
@@ -205,7 +271,7 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
     },
     {
       items: [
-        { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" /> }
+        { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" />, permission: "settings.view" }
       ]
     }
   ];
@@ -218,8 +284,8 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
 
   const renderSidebarSections = () => {
     return SIDEBAR_SECTIONS.map((section, secIdx) => {
-      // If section is specific admin telemetry and not admin, skip
-      const filteredItems = section.items;
+      // Filter out items the user does not have permission to view
+      const filteredItems = section.items.filter(item => hasPermission((item as any).permission));
       if (filteredItems.length === 0) return null;
 
       return (

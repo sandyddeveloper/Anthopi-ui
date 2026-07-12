@@ -62,10 +62,41 @@ function DatabaseIcon(props: any) {
   );
 }
 
+const ENCRYPTION_KEY = "SynapseSecurityKey_2026_salt";
+
+const encryptData = (text: string): string => {
+  if (!text) return "";
+  let result = "";
+  for (let i = 0; i < text.length; i++) {
+    const charCode = text.charCodeAt(i);
+    const keyChar = ENCRYPTION_KEY.charCodeAt(i % ENCRYPTION_KEY.length);
+    const encryptedChar = charCode ^ keyChar;
+    result += String.fromCharCode(encryptedChar);
+  }
+  return btoa(unescape(encodeURIComponent(result)));
+};
+
+const decryptData = (ciphertext: string): string => {
+  if (!ciphertext) return "";
+  try {
+    const text = decodeURIComponent(escape(atob(ciphertext)));
+    let result = "";
+    for (let i = 0; i < text.length; i++) {
+      const charCode = text.charCodeAt(i);
+      const keyChar = ENCRYPTION_KEY.charCodeAt(i % ENCRYPTION_KEY.length);
+      const decryptedChar = charCode ^ keyChar;
+      result += String.fromCharCode(decryptedChar);
+    }
+    return result;
+  } catch (e) {
+    return "";
+  }
+};
+
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("user@example.com");
-  const [password, setPassword] = useState("SecurePassword123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
@@ -80,6 +111,22 @@ export default function LoginPage() {
   const [consoleLogs, setConsoleLogs] = useState<string[]>([
     "System: Standing by. Select a pipeline preset to test triggers."
   ]);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("saved_email");
+    const savedPassword = localStorage.getItem("saved_password");
+    const savedRemember = localStorage.getItem("remember_me");
+    
+    if (savedRemember === "true") {
+      setEmail(savedEmail ? decryptData(savedEmail) : "");
+      setPassword(savedPassword ? decryptData(savedPassword) : "");
+      setRememberMe(true);
+    } else {
+      setEmail("admin@anthopi.com");
+      setPassword("adminpassword123");
+      setRememberMe(savedRemember === "false" ? false : true);
+    }
+  }, []);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "dark" | "light" | null;
@@ -165,6 +212,16 @@ export default function LoginPage() {
       localStorage.setItem("access_token", loginRes.data.access);
       localStorage.setItem("refresh_token", loginRes.data.refresh);
       localStorage.setItem("user", JSON.stringify(loginRes.data.user));
+
+      if (rememberMe) {
+        localStorage.setItem("saved_email", encryptData(email));
+        localStorage.setItem("saved_password", encryptData(password));
+        localStorage.setItem("remember_me", "true");
+      } else {
+        localStorage.removeItem("saved_email");
+        localStorage.removeItem("saved_password");
+        localStorage.setItem("remember_me", "false");
+      }
 
       let progress = 50;
       const progressInterval = setInterval(() => {
