@@ -609,5 +609,76 @@ export const apiClient = {
     delete: (id: string | number) => request(`/api/v1/schedules/${id}/`, { method: 'DELETE' }),
     listExecutions: () => request<any[]>('/api/v1/schedule-executions/', { method: 'GET' }),
   },
+  
+  // 22. AI Operations
+  operations: {
+    // Memory
+    listMemories: (params?: { level?: string; type?: string }) => {
+      let query = '';
+      if (params) {
+        const parts = [];
+        if (params.level) parts.push(`level=${encodeURIComponent(params.level)}`);
+        if (params.type) parts.push(`type=${encodeURIComponent(params.type)}`);
+        if (parts.length > 0) query = `?${parts.join('&')}`;
+      }
+      return request<any[]>(`/api/v1/memory/${query}`, { method: 'GET' });
+    },
+    createMemory: (body: any) => request('/api/v1/memory/', { method: 'POST', body: JSON.stringify(body) }),
+    getMemory: (id: string) => request(`/api/v1/memory/${id}/`, { method: 'GET' }),
+    updateMemory: (id: string, body: any) => request(`/api/v1/memory/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteMemory: (id: string) => request(`/api/v1/memory/${id}/`, { method: 'DELETE' }),
+    mergeMemories: (primaryId: string, secondaryId: string) =>
+      request('/api/v1/memory/merge/', {
+        method: 'POST',
+        body: JSON.stringify({ primary_id: primaryId, secondary_id: secondaryId }),
+      }),
+
+    // Reasoning
+    listReasoningLogs: (params?: { execution_id?: string }) => {
+      const query = params?.execution_id ? `?execution_id=${encodeURIComponent(params.execution_id)}` : '';
+      return request<any[]>(`/api/v1/reasoning/${query}`, { method: 'GET' });
+    },
+
+    // Tasks/Jobs
+    listTasks: (params?: { status?: string; agent_id?: string }) => {
+      let query = '';
+      if (params) {
+        const parts = [];
+        if (params.status) parts.push(`status=${encodeURIComponent(params.status)}`);
+        if (params.agent_id) parts.push(`agent=${encodeURIComponent(params.agent_id)}`);
+        if (parts.length > 0) query = `?${parts.join('&')}`;
+      }
+      return request<any[]>(`/api/v1/jobs/${query}`, { method: 'GET' });
+    },
+    createTask: (body: any) => request('/api/v1/jobs/', { method: 'POST', body: JSON.stringify(body) }),
+    getTask: (id: string) => request(`/api/v1/jobs/${id}/`, { method: 'GET' }),
+    updateTask: (id: string, body: any) => request(`/api/v1/jobs/${id}/`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteTask: (id: string) => request(`/api/v1/jobs/${id}/`, { method: 'DELETE' }),
+
+    // Approvals
+    listApprovals: (params?: { status?: string }) => {
+      const query = params?.status ? `?status=${encodeURIComponent(params.status)}` : '';
+      return request<any[]>(`/api/v1/approvals/${query}`, { method: 'GET' });
+    },
+    approveRequest: (id: string, comments?: string) =>
+      request(`/api/v1/approvals/${id}/approve/`, { method: 'POST', body: JSON.stringify({ comments: comments || '' }) }),
+    rejectRequest: (id: string, comments?: string) =>
+      request(`/api/v1/approvals/${id}/reject/`, { method: 'POST', body: JSON.stringify({ comments: comments || '' }) }),
+
+    // Reports
+    listReports: () => request<any[]>('/api/v1/reports/', { method: 'GET' }),
+    createReport: (body: any) => request('/api/v1/reports/', { method: 'POST', body: JSON.stringify(body) }),
+    getReport: (id: string) => request(`/api/v1/reports/${id}/`, { method: 'GET' }),
+    deleteReport: (id: string) => request(`/api/v1/reports/${id}/`, { method: 'DELETE' }),
+
+    // Analytics
+    getAnalyticsOverview: () => request<any>('/api/v1/analytics/', { method: 'GET' }),
+    listEvents: () => request<any[]>('/api/v1/analytics/events/', { method: 'GET' }),
+    createEvent: (body: any) => request('/api/v1/analytics/events/', { method: 'POST', body: JSON.stringify(body) }),
+
+    // Feedback
+    listFeedback: () => request<any[]>('/api/v1/feedback/', { method: 'GET' }),
+    createFeedback: (body: any) => request('/api/v1/feedback/', { method: 'POST', body: JSON.stringify(body) }),
+  },
 };
 

@@ -32,7 +32,12 @@ import {
   User,
   Activity,
   Server,
-  Wrench
+  Wrench,
+  Brain,
+  ShieldCheck,
+  FileText,
+  CheckSquare,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "../common/command-palette";
@@ -209,19 +214,11 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
       ]
     },
     {
-      title: "Employee Management",
+      title: "Enterprise",
       items: [
         { label: "Employees", href: "/team", icon: <Users className="h-4.5 w-4.5" />, permission: "employee.view" },
-        { label: "Departments", href: "/organization?tab=departments", icon: <Layers className="h-4.5 w-4.5" />, indented: true, permission: "department.view" },
-        { label: "Teams", href: "/organization?tab=teams", icon: <Server className="h-4.5 w-4.5" />, indented: true, permission: "team.view" },
-        { label: "Designations", href: "/organization?tab=designations", icon: <Sliders className="h-4.5 w-4.5" />, indented: true, permission: "designation.view" }
-      ]
-    },
-    {
-      title: "Project Management",
-      items: [
         { label: "Projects", href: "/projects", icon: <Folder className="h-4.5 w-4.5" />, permission: "project.view" },
-        { label: "Project Members", href: "/projects?tab=members", icon: <Users className="h-4.5 w-4.5" />, indented: true, permission: "project.members.view" }
+        { label: "Files", href: "/files", icon: <FolderClosed className="h-4.5 w-4.5" />, permission: "file.view" }
       ]
     },
     {
@@ -230,47 +227,39 @@ export const WorkspaceLayout = ({ children }: { children: React.ReactNode }) => 
         { label: "AI Dashboard", href: "/ai-dashboard", icon: <Sparkles className="h-4.5 w-4.5" />, permission: "ai.dashboard.view" },
         { label: "AI Agents", href: "/agents", icon: <Bot className="h-4.5 w-4.5" />, permission: "agent.view" },
         { label: "AI Chat", href: "/chat", icon: <MessageSquare className="h-4.5 w-4.5" />, permission: "chat.view" },
-        { label: "Conversations", href: "/conversations", icon: <Terminal className="h-4.5 w-4.5" />, permission: "conversation.view" },
         { label: "Knowledge", href: "/knowledge", icon: <BookOpen className="h-4.5 w-4.5" />, permission: "knowledge.view" },
         { label: "Prompts", href: "/prompts", icon: <Zap className="h-4.5 w-4.5" />, permission: "prompt.view" },
         { label: "AI Tools", href: "/ai-tools", icon: <Wrench className="h-4.5 w-4.5" />, permission: "tool.view" },
         { label: "Models", href: "/models", icon: <Cpu className="h-4.5 w-4.5" />, permission: "model.view" },
-        { label: "AI Usage", href: "/ai-usage", icon: <BarChart3 className="h-4.5 w-4.5" />, permission: "usage.view" }
+        { label: "Usage", href: "/ai-usage", icon: <BarChart3 className="h-4.5 w-4.5" />, permission: "usage.view" }
       ]
     },
     {
       title: "Automation",
       items: [
-        { label: "Dashboard", href: "/automations?tab=dashboard", icon: <Zap className="h-4.5 w-4.5 text-amber-500" />, permission: "automation.dashboard.view" },
         { label: "Workflows", href: "/automations?tab=workflows", icon: <Layers className="h-4.5 w-4.5" />, permission: "workflow.view" },
         { label: "Builder", href: "/automations?tab=builder", icon: <Sliders className="h-4.5 w-4.5" />, permission: "workflow.manage" },
-        { label: "Templates", href: "/automations?tab=templates", icon: <BookOpen className="h-4.5 w-4.5" />, permission: "workflow.template.view" },
         { label: "Executions", href: "/automations?tab=executions", icon: <Activity className="h-4.5 w-4.5" />, permission: "workflow.execution.view" },
-        { label: "Scheduler", href: "/automations?tab=scheduler", icon: <Calendar className="h-4.5 w-4.5" />, permission: "scheduler.view" },
-        { label: "Variables", href: "/automations?tab=variables", icon: <Wrench className="h-4.5 w-4.5" />, permission: "variable.view" },
-        { label: "Webhooks", href: "/automations?tab=webhooks", icon: <Link2 className="h-4.5 w-4.5" />, permission: "webhook.view" }
+        { label: "Templates", href: "/automations?tab=templates", icon: <BookOpen className="h-4.5 w-4.5" />, permission: "workflow.template.view" }
       ]
     },
     {
-      title: "File Management",
+      title: "AI Operations",
       items: [
-        { label: "Files", href: "/files", icon: <FolderClosed className="h-4.5 w-4.5" />, permission: "file.view" },
-        { label: "Shared Files", href: "/files?tab=shared", icon: <Link2 className="h-4.5 w-4.5" />, indented: true, permission: "file.shared.view" }
+        { label: "Operations Dashboard", href: "/operations", icon: <LayoutGrid className="h-4.5 w-4.5" /> },
+        { label: "Memory", href: "/operations/memory", icon: <Brain className="h-4.5 w-4.5" /> },
+        { label: "Reasoning", href: "/operations/reasoning", icon: <Eye className="h-4.5 w-4.5" /> },
+        { label: "Tasks", href: "/operations/tasks", icon: <CheckSquare className="h-4.5 w-4.5" /> },
+        { label: "Approvals", href: "/operations/approvals", icon: <ShieldCheck className="h-4.5 w-4.5" /> },
+        { label: "Reports", href: "/operations/reports", icon: <FileText className="h-4.5 w-4.5" /> },
+        { label: "Analytics", href: "/operations/analytics", icon: <BarChart3 className="h-4.5 w-4.5" /> },
+        { label: "Feedback", href: "/operations/feedback", icon: <MessageSquare className="h-4.5 w-4.5" /> },
+        { label: "Governance", href: "/operations/governance", icon: <Sliders className="h-4.5 w-4.5" /> }
       ]
     },
     {
       items: [
         { label: "Notifications", href: "/notifications", icon: <Bell className="h-4.5 w-4.5" /> },
-        { label: "Activity", href: "/activity", icon: <Activity className="h-4.5 w-4.5" /> }
-      ]
-    },
-    {
-      items: [
-        { label: "My Profile", href: "/profile", icon: <User className="h-4.5 w-4.5" /> }
-      ]
-    },
-    {
-      items: [
         { label: "Settings", href: "/settings", icon: <Settings className="h-4.5 w-4.5" />, permission: "settings.view" }
       ]
     }
